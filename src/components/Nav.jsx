@@ -20,6 +20,14 @@ export default function Nav({ page, navigate }) {
           {l.label}
         </button>
       ))}
+      <a
+        className="nav-docs-link"
+        href="/RoboWar-Programmer-Guide.pdf"
+        download="RoboWar-Programmer-Guide.pdf"
+        title="Download Programmer's Guide (PDF)"
+      >
+        📖 Docs
+      </a>
     </nav>
   );
 }

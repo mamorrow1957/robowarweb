@@ -451,7 +451,8 @@ Nav bar
 ├── My Robots          — list, create, edit, delete, export
 ├── Battle             — robot selection + arena config → battle viewer
 ├── Tournament         — round-robin bracket (local, no backend)
-└── Leaderboard        — ELO rankings (localStorage)
+├── Leaderboard        — ELO rankings (localStorage)
+└── [📖 Docs]          — far-right; downloads RoboWar-Programmer-Guide.pdf
 ```
 
 ### 6.3 Robot Editor

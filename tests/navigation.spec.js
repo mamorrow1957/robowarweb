@@ -79,6 +79,13 @@ test.beforeEach(async ({ page }) => {
   await loadApp(page);
 });
 
+test('nav bar has Docs download link', async ({ page }) => {
+  const link = page.locator('.nav-docs-link');
+  await expect(link).toBeVisible();
+  await expect(link).toContainText('Docs');
+  await expect(link).toHaveAttribute('download');
+});
+
 test('page title is RoboWar Web', async ({ page }) => {
   await expect(page).toHaveTitle(/RoboWar/);
 });
