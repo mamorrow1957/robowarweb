@@ -6,8 +6,7 @@ test.beforeEach(async ({ page }) => {
   await resetApp(page);
   // Clear any saved ELO ratings
   await page.evaluate(() => localStorage.removeItem('robowar_elo'));
-  await page.reload();
-  await page.waitForSelector('.nav');
+  await resetApp(page);
 });
 
 test('leaderboard page title is "Leaderboard"', async ({ page }) => {
