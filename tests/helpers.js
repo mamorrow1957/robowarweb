@@ -42,7 +42,7 @@ export async function seedRobots(page, robots) {
     localStorage.setItem('robowar_robots', JSON.stringify(r));
   }, robots);
   await page.reload();
-  await page.waitForSelector('.nav');
+  await dismissSplash(page);
 }
 
 /** Minimal valid robot definition. */
