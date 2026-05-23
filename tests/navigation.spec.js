@@ -70,7 +70,7 @@ test('splash credits include Claude Code link', async ({ page }) => {
   await page.goto('/');
   const link = page.locator('.splash-credit-link');
   await expect(link).toContainText('Claude Code');
-  await expect(link).toHaveAttribute('href', /claude/);
+  await expect(link).toHaveAttribute('href', 'https://claude.ai/code');
 });
 
 // ── Navigation ───────────────────────────────────────────────────────────────

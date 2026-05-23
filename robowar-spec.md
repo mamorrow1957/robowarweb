@@ -442,7 +442,7 @@ Displayed on first load before the main navigation. Full-screen dark background 
 - Hint text directs new players to read the guide before entering
 - **Credits footer** (below a divider):
   - Original *RoboWar* created by **Rod McFarland** (1989–1994); additional development by **Peter Spear** and the RoboWar community
-  - Web version vibe coded in **May 2026** by **Michael Morrow** using **Claude Code** (linked to `https://claude.ai/claude-code`)
+  - Web version vibe coded in **May 2026** by **Michael Morrow** using **Claude Code** (linked to `https://claude.ai/code`)
 
 ### 6.2 Navigation
 
