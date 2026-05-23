@@ -1,7 +1,7 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.1 (draft)  
-**Platform:** Web (JavaScript / HTML5 Canvas)  
+**Version:** 0.2 (updated to match v1 implementation)
+**Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
 ---
@@ -38,6 +38,7 @@ RoboWar Web is a faithful browser-based recreation of the classic 1989 Macintosh
 - 3D graphics or physics
 - Mobile touch support (keyboard-centric editor is desktop-first)
 - Real-time streaming of live battles (replays are sufficient)
+- Backend server / online multiplayer (v1 uses localStorage; see §7)
 
 ---
 
@@ -55,12 +56,8 @@ RoboWar Web is a faithful browser-based recreation of the classic 1989 Macintosh
 │  │              Game Engine (Web Worker)                   │  │
 │  │   Compiler → VM Scheduler → Combat Engine → Renderer   │  │
 │  └─────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Backend (optional, for multiplayer)                         │
-│  Node.js / Express  +  PostgreSQL  +  Socket.io              │
+│                                                               │
+│  localStorage: robot definitions, ELO ratings                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -71,10 +68,18 @@ RoboWar Web is a faithful browser-based recreation of the classic 1989 Macintosh
 | **Compiler** | Tokenise, parse, and assemble RoboWar source into bytecode |
 | **VM** | Execute bytecode on a per-robot stack machine each game tick |
 | **Combat Engine** | Move projectiles, apply damage, resolve collisions each tick |
-| **Renderer** | Draw arena state to Canvas at up to 60 fps |
-| **Backend API** | Authentication, robot storage, matchmaking, leaderboards |
+| **Renderer** | Draw arena state to Canvas 2D at up to 60 fps |
+| **localStorage** | Persist robot definitions and ELO ratings client-side (v1) |
 
-The VM and Combat Engine run inside a **Web Worker** so the UI thread stays responsive during fast-forward and simulation.
+The VM and Combat Engine run inside a **Web Worker** so the UI thread stays responsive during fast-forward and simulation. The worker simulates the entire battle and returns all frames at once; the viewer plays them back from the local frame buffer.
+
+### v2 Backend (not yet implemented)
+
+```
+Node.js / Express  +  PostgreSQL  +  Socket.io
+```
+
+Planned for online matchmaking, persistent leaderboards, robot sharing, and real-time spectating.
 
 ---
 
@@ -85,14 +90,16 @@ The VM and Combat Engine run inside a **Web Worker** so the UI thread stays resp
 RoboWar programs execute on a **stack machine** similar to Forth. Each robot gets a fixed number of CPU cycles per game tick (configurable via hardware). A program consists of a flat list of tokens; control flow uses labels and conditional/unconditional jumps.
 
 ```
-Stack:      integer values (32-bit signed)
+Stack:      integer values (32-bit signed), max depth 256 (oldest entry dropped on overflow)
 Registers:  named hardware I/O ports (read or write)
-Variables:  100 numbered slots (1–100) + named aliases
+Variables:  100 numbered slots (1–100) + named aliases via #DEFINE
 ```
+
+**Coordinate system:** `0° = right (+X direction)`, angles increase clockwise (`90° = down`, `180° = left`, `270° = up`). This matches standard Canvas 2D math where +Y is downward. All angle registers (RADAR, AIM) use this convention.
 
 ### 3.2 Registers (Hardware Ports)
 
-Registers are the primary interface between the program and the robot's hardware. Reading a register returns the current sensor value; writing a register issues a hardware command.
+Registers are the primary interface between the program and the robot's hardware. Reading a register pushes the current sensor value; writing a register issues a hardware command.
 
 #### Read-only Sensors
 
@@ -100,37 +107,34 @@ Registers are the primary interface between the program and the robot's hardware
 |---|---|---|
 | `ENERGY` | 0–max | Current energy level |
 | `ARMOR` | 0–max | Current armor (hit points) |
-| `HEAT` | 0–max | Current weapon heat |
+| `HEAT` | 0–20 | Current weapon heat (max heat is fixed at 20) |
 | `RANGE` | 0–1500 | Distance to nearest enemy in radar cone |
-| `RADAR` | 0–359 | Bearing (°) to nearest enemy in radar cone |
-| `SPEEDX` | −10–10 | Current X velocity (pixels/tick) |
-| `SPEEDY` | −10–10 | Current Y velocity |
-| `POSX` | 0–299 | Robot X position |
-| `POSY` | 0–299 | Robot Y position |
+| `RADAR` | 0–359 | Absolute bearing (°) to nearest detected enemy |
+| `SPEEDX` | −max–max | Current X velocity (pixels/tick, rounded) |
+| `SPEEDY` | −max–max | Current Y velocity |
+| `POSX` | 0–arenaW | Robot X position (rounded) |
+| `POSY` | 0–arenaH | Robot Y position (rounded) |
 | `COLLISION` | 0/1 | 1 if collided with wall or robot last tick |
-| `STUNNED` | 0/1 | 1 if robot is stunned (cannot fire) |
-| `TEAMMATES` | 0–7 | Number of surviving teammates |
-| `RANDOM` | 0–255 | Pseudo-random value (seeded deterministically) |
+| `STUNNED` | 0/1 | 1 if robot is stunned (hardware writes ignored) |
+| `TEAMMATES` | 0–7 | Number of surviving robots on the same team |
+| `RANDOM` | 0–255 | Deterministic per-robot RNG value; advances once per tick |
 | `TIME` | 0+ | Elapsed ticks this battle |
 
 #### Write-only Actuators
 
 | Register | Value | Description |
 |---|---|---|
-| `SHIELD` | 0/1 | Enable or disable energy shield |
-| `GUNX` | −10–10 | Set gun aim X component |
+| `SHIELD` | 0/1 | Enable or disable energy shield (ignored if shield hardware = 0) |
+| `GUNX` | −10–10 | Set gun aim X component (angle derived via atan2) |
 | `GUNY` | −10–10 | Set gun aim Y component |
 | `FIRE` | 0–3 | Fire weapon (0=none, 1=bullet, 2=missile, 3=drone) |
-| `THRUSTX` | −5–5 | Apply X thrust |
+| `THRUSTX` | −5–5 | Apply X thrust (clamped; multiplied by engine accel × 0.5 per tick) |
 | `THRUSTY` | −5–5 | Apply Y thrust |
-| `BRAKE` | 0/1 | Apply braking force |
-| `BEEP` | 0–15 | Play tone (cosmetic only) |
+| `BRAKE` | 0/1 | Apply braking force (velocity × 0.80 per tick when active) |
+| `BEEP` | 0–15 | Play tone (cosmetic only; no effect on simulation) |
+| `AIM` | 0–359 | Set gun aim angle directly in degrees (overrides GUNX/GUNY) |
 
-#### Read/Write
-
-| Register | Description |
-|---|---|
-| `AIM` | Gun angle in degrees; shorthand for setting GUNX/GUNY via polar |
+> **Note:** `AIM` is **write-only** in v1. Reading the current aim angle is not supported; use GUNX/GUNY for that purpose in future versions.
 
 ### 3.3 Instruction Set
 
@@ -152,10 +156,10 @@ Registers are the primary interface between the program and the robot's hardware
 |---|---|---|
 | `+` | `a b — a+b` | |
 | `-` | `a b — a-b` | |
-| `*` | `a b — a*b` | |
+| `*` | `a b — a*b` | 32-bit integer multiply |
 | `/` | `a b — a/b` | Integer division; divide-by-zero → 0 |
-| `MOD` | `a b — a mod b` | |
-| `ABS` | `a — |a|` | |
+| `MOD` | `a b — a mod b` | Always non-negative; divide-by-zero → 0 |
+| `ABS` | `a — \|a\|` | |
 | `NEG` | `a — −a` | |
 | `MAX` | `a b — max(a,b)` | |
 | `MIN` | `a b — min(a,b)` | |
@@ -176,26 +180,28 @@ Registers are the primary interface between the program and the robot's hardware
 | Opcode | Stack effect |
 |---|---|
 | `AND` | `a b — a&&b` |
-| `OR` | `a b — a||b` |
+| `OR` | `a b — a\|\|b` |
 | `NOT` | `a — !a` |
 | `XOR` | `a b — a^b` |
 
 #### Control Flow
 
 ```
-LABEL:          ; define a jump target (not an instruction, no cost)
+LABEL:          ; define a jump target (no instruction emitted, no CPU cost)
 
-GOTO label      ; unconditional jump
-IF              ; pop top; if 0 skip to matching ENDIF
+GOTO label      ; unconditional jump to label
+IF              ; pop top; if 0 skip to matching ELSE or ENDIF
 ELSE            ; within IF block; flip condition branch
-ENDIF           ; end IF block
-LOOP            ; begin a counted loop: pop N, iterate N times
-POOL            ; end LOOP block
+ENDIF           ; end IF block (no instruction emitted)
+LOOP            ; begin infinite loop (no instruction emitted; marks body start)
+POOL            ; end LOOP block — unconditional jump back to body start
 CALL label      ; push return address, jump to label (subroutine)
 RETURN          ; pop return address, jump back
 ```
 
-`IF/ELSE/ENDIF` and `LOOP/POOL` may be nested up to 16 levels deep.
+`IF/ELSE/ENDIF` and `LOOP/POOL` may be nested up to any depth (limited by available stack memory).
+
+> **LOOP semantics:** `LOOP/POOL` creates an **infinite loop** — no count is popped from the stack. The loop body executes continuously across ticks; the robot's VM picks up from where it left off each tick (PC is preserved between ticks). To break out of a loop, use `GOTO`.
 
 #### Variable Access
 
@@ -207,7 +213,7 @@ RECALL n        ; push value from variable slot n
 Named variables are syntactic sugar resolved by the compiler:
 
 ```
-#DEFINE myvar 42    ; resolves "myvar" to slot 42
+#DEFINE myvar 42    ; resolves "myvar" to slot 42 everywhere in this program
 ```
 
 #### Register Access
@@ -215,18 +221,20 @@ Named variables are syntactic sugar resolved by the compiler:
 Reading a register pushes its value; writing pops a value from the stack:
 
 ```
-ENERGY          ; push current energy
+ENERGY          ; push current energy level
 5 SHIELD        ; pop 5 (truthy) → enable shield
 RANGE           ; push radar range reading
+RADAR AIM       ; push bearing then pop it into AIM (point gun at nearest enemy)
 ```
 
 ### 3.4 Execution Model
 
-1. At the start of each game tick the VM executes **CPU cycles** instructions for each robot (see §4 hardware).
-2. If the stack underflows, the offending instruction is a no-op (no crash).
-3. Programs wrap around: execution reaching the end jumps to the beginning.
-4. A robot that is `STUNNED` still runs its program but hardware writes are ignored.
-5. The VM is cycle-accurate for replay determinism; random seeds are stored in the replay header.
+1. At the start of each game tick, sensors are updated for all robots.
+2. The VM executes **CPU cycles** instructions for each alive, unstunned robot.
+3. Stack underflow returns 0 (no crash).
+4. Programs wrap around: when the PC reaches the end of the bytecode it resets to 0.
+5. A robot that is `STUNNED` still advances its PC but hardware writes are silently ignored.
+6. The VM is cycle-accurate for replay determinism; the battle seed is stored in the replay header.
 
 ### 3.5 Sample Program
 
@@ -248,19 +256,20 @@ POOL
 
 The compiler performs these passes:
 
-1. **Tokeniser** — whitespace/comment stripping, string → token stream
-2. **Label resolution** — first pass collects all label addresses
-3. **Macro expansion** — `#DEFINE` substitution
-4. **Bytecode emission** — tokens → compact integer array
-5. **Validation** — unmatched IF/ENDIF, LOOP/POOL, CALL with no RETURN, unknown opcodes → error with line number
+1. **Tokeniser** — split source on whitespace, strip comments (`;` to end of line)
+2. **`#DEFINE` extraction** — collect macro definitions before other processing
+3. **Macro expansion** — substitute defined names in the token stream (GOTO/CALL label operands are never expanded)
+4. **Label collection** — first pass over expanded tokens; simulate bytecode size to assign each label a PC address
+5. **Bytecode emission** — second pass emits actual opcodes; back-patches `IF/ELSE/ENDIF` placeholders; resolves `LOOP/POOL` backward jumps
+6. **Validation** — unmatched IF/ENDIF, LOOP/POOL; unknown opcodes; invalid STORE/RECALL slots; undefined labels → error with token text
 
-Compiler errors are displayed inline in the editor (§6.2).
+Compiler errors are displayed inline in the editor's error panel.
 
 ---
 
 ## 4. Hardware System
 
-Each robot is configured by spending **hardware points (HP)** from a fixed budget (default: **30 HP**). Players may not exceed the budget; unspent points are wasted.
+Each robot is configured by spending **hardware points (HP)** from a fixed budget (**30 HP**). Players may not exceed the budget; unspent points are wasted.
 
 ### 4.1 Hardware Components
 
@@ -278,7 +287,7 @@ Each robot is configured by spending **hardware points (HP)** from a fixed budge
 
 | Level | HP cost | Energy drain/tick (when active) | Damage multiplier |
 |---|---|---|---|
-| 0 | 0 | — | none (no shield) |
+| 0 | 0 | — | none (no shield hardware) |
 | 1 | 2 | 2 | 0.75× |
 | 2 | 4 | 3 | 0.50× |
 | 3 | 6 | 5 | 0.30× |
@@ -287,13 +296,13 @@ Each robot is configured by spending **hardware points (HP)** from a fixed budge
 
 | Type | HP cost | Damage | Speed | Heat/shot | Notes |
 |---|---|---|---|---|---|
-| None | 0 | — | — | — | Programs can still store/recall |
+| None | 0 | — | — | — | No projectiles |
 | Bullet | 2 | 3 | 15 px/tick | 1 | Unlimited ammo |
-| Missile | 4 | 8 | 8 px/tick | 3 | Tracks target for 5 ticks |
-| Drone | 6 | 4/tick | 5 px/tick | 5 | Persists until destroyed or timer expires (30 ticks) |
-| Triple shot | 6 | 3×3 | 15 px/tick | 4 | Three bullets in a spread |
+| Missile | 4 | 8 | 8 px/tick | 3 | Tracks nearest enemy for 5 ticks |
+| Drone | 6 | 4/tick | 0 (stationary) | 5 | Persists up to 30 ticks; deals proximity damage each tick |
+| Triple | 6 | 3×3 | 15 px/tick | 4 | Three bullets in a ±0.2 rad spread |
 
-Robots overheat when `HEAT` exceeds max heat; while overheated `FIRE` is ignored until heat dissipates.
+Robots overheat when `HEAT` reaches **20** (fixed max); while overheated, `FIRE` writes are ignored until heat dissipates below 20.
 
 #### Engine
 
@@ -303,6 +312,8 @@ Robots overheat when `HEAT` exceeds max heat; while overheated `FIRE` is ignored
 | 1 | 2 | 6 | 2 |
 | 2 | 4 | 8 | 3 |
 | 3 | 6 | 12 | 4 |
+
+> Velocity change per tick = `THRUSTX/Y × accel × 0.5`, clamped to ±maxSpeed.
 
 #### Energy
 
@@ -334,8 +345,6 @@ Controls how many VM instructions execute per tick.
 
 #### Radar
 
-Affects the cone angle and maximum range of the radar sensor.
-
 | Level | HP cost | Max range | Cone angle |
 |---|---|---|---|
 | 0 | 0 | 200 | 60° |
@@ -343,9 +352,11 @@ Affects the cone angle and maximum range of the radar sensor.
 | 2 | 4 | 500 | 180° |
 | 3 | 6 | 999 | 360° |
 
+The radar cone is centered on the robot's current `AIM` angle. If no enemy falls within the cone and range, `RANGE` returns 0 and `RADAR` retains its last known value.
+
 ### 4.2 Hardware Budget Enforcement
 
-The editor displays a live **HP remaining** counter. Any configuration exceeding 30 HP marks the robot invalid and blocks saving.
+The editor displays a live **HP remaining** counter. Any configuration exceeding 30 HP marks the robot invalid and blocks saving or starting a battle.
 
 ---
 
@@ -353,61 +364,70 @@ The editor displays a live **HP remaining** counter. Any configuration exceeding
 
 ### 5.1 Arena
 
-- **Dimensions:** 300 × 300 logical units (rendered scaled to fit viewport)
-- **Walls:** Hard boundaries; robots and projectiles bounce off walls elastically (velocity component negated)
-- **Starting positions:** Assigned randomly from a set of spawn zones at tick 0; no two robots spawn within 50 units of each other
-- **Victory condition:** Last robot (or team) standing; if tick limit is reached the robot with most remaining armor wins; ties go to the robot with most remaining energy
+- **Dimensions:** configurable — Small 200×200, Standard 300×300, Large 500×500 (logical units, rendered scaled to viewport)
+- **Coordinate system:** origin top-left; +X right, +Y down
+- **Robot radius:** 8 logical units (collision boundary and render size)
+- **Walls:** hard boundaries; robots bounce elastically (velocity component negated); `COLLISION` set to 1
+- **Starting positions:** random spawn within a 40-unit inset margin; robots are placed at least 60 units apart; seed-deterministic
+- **Victory condition:** last robot (or team) standing wins; at tick limit the robot with the highest remaining armor wins; ties broken by remaining energy; mutual destruction → Draw
 
 Default tick limit: **2000 ticks** per battle.
 
 ### 5.2 Physics
 
-Each tick the combat engine:
+Each tick the combat engine runs in this order:
 
-1. Processes all VM writes (thrust, aim, fire commands)
-2. Applies acceleration from thrust to velocity, capped by engine max speed
-3. Applies braking (velocity × 0.85 per tick when `BRAKE=1`)
-4. Moves each robot by its velocity vector
-5. Resolves wall collisions (bounce + set `COLLISION=1`)
-6. Resolves robot–robot collisions (elastic exchange, both `COLLISION=1`)
-7. Moves all active projectiles
-8. Resolves projectile–robot hits
-9. Updates heat, energy, shield state
-10. Checks win condition
+1. Update all sensors (radar, position, speed, heat, energy, etc.)
+2. Run VM for each alive, unstunned robot; collect actuator outputs
+3. Apply aim changes from `AIM` / `GUNX` / `GUNY` writes
+4. Apply thrust: `vx += thrustX × accel × 0.5`; clamp to ±maxSpeed  
+   Apply braking: `vx *= 0.80` when `BRAKE=1`
+5. Move each robot by its velocity vector
+6. Resolve wall collisions (elastic bounce; set `COLLISION=1`)
+7. Resolve robot–robot collisions (overlap separation + elastic velocity exchange; set `COLLISION=1` on both)
+8. Move active projectiles; apply missile homing
+9. Resolve projectile–robot hits; apply damage
+10. Spawn new projectiles from fire commands (if not overheated)
+11. Update heat (dissipate `cooling.dissipation` per tick), energy (recharge + shield drain)
+12. Remove dead projectiles; check victory condition
 
 ### 5.3 Projectiles
 
 | Property | Bullet | Missile | Drone |
 |---|---|---|---|
-| Radius | 2 | 4 | 6 |
+| Radius | 2 | 3 | 5 |
 | Max ticks alive | 40 | 80 | 30 |
-| Wall behaviour | Destroyed | Bounces once then destroyed | Destroyed |
-| Homing | No | Yes (5 ticks) | Stationary |
-| Collateral | No | No | Yes (proximity each tick) |
+| Wall behaviour | Destroyed | Bounces once then destroyed | N/A (stationary) |
+| Homing | No | Yes (5 ticks) | No |
+| Movement | Ballistic | Ballistic + weighted homing | Stationary at spawn point |
+| Damage | On contact | On contact | Proximity check each tick |
 
-Missiles home toward the **owner's current radar target** for the first 5 ticks using a proportional navigation algorithm, then fly straight.
+**Missile homing** uses weighted velocity blending: each homing tick the velocity is adjusted toward the nearest living enemy (`vNew = v×0.7 + direction×speed×0.3`), speed capped at 8 px/tick.
 
 ### 5.4 Damage Resolution
 
 ```
 raw_damage = weapon_damage
-shielded_damage = raw_damage × shield_multiplier   (if shield active & energy > 0)
+shielded_damage = raw_damage × shield_multiplier   (if shield active and energy > 0)
 armor -= shielded_damage
-energy -= shield_energy_drain × shielded  (per tick shield is active)
+energy -= shield_energy_drain                       (per tick shield is active)
 ```
 
-When `armor ≤ 0` the robot is destroyed and removed from the arena.
+When `armor ≤ 0` the robot is destroyed and removed from the arena immediately.
+
+When shield energy falls to zero mid-tick the shield deactivates automatically.
 
 ### 5.5 Radar Resolution
 
-Each tick, the radar scans a cone of `radar_cone_angle` centered on the robot's `AIM` direction. The nearest enemy within the cone and within `radar_max_range` updates `RANGE` and `RADAR`. If no enemy is in the cone, both registers return their previous values.
+Each tick, the radar scans a cone of `radarCone` degrees centered on the robot's current `aimAngle`. The nearest enemy within the cone and within `radarRange` updates `RANGE` and `RADAR`. If no enemy is in the cone, `RANGE` returns 0 and `RADAR` retains its last value.
 
 ### 5.6 Determinism & Replay
 
-- All RNG uses a **seeded LCG** (seed stored in battle record)
-- Arena state is a pure function of (seed, robot programs, hardware configs, tick)
-- Replays are stored as `{ seed, robots[] }` — the full battle can be re-simulated client-side
-- Simulation runs in a Web Worker; the main thread renders from a frame buffer updated via `postMessage`
+- Each robot has its own **Mulberry32 LCG** seeded from `battleSeed + robotIndex × 997`
+- The shared battle RNG (also Mulberry32, seeded from `battleSeed`) is used only for spawn position generation
+- Arena state is a pure function of `(battleSeed, robotPrograms, hardwareConfigs, tickCount)`
+- Replays are stored as `{ seed, robots[] }` — the full battle is re-simulated client-side
+- The battle worker simulates the entire battle synchronously and posts all frames at once
 
 ---
 
@@ -416,123 +436,106 @@ Each tick, the radar scans a cone of `radar_cone_angle` centered on the robot's 
 ### 6.1 Navigation
 
 ```
-Home
-├── My Robots          — list, create, import
-├── Battle             — set up and run a battle
-├── Tournament         — create / join / view
-├── Leaderboard        — global rankings
-└── Settings           — account, display, key bindings
+Nav bar
+├── My Robots          — list, create, edit, delete, export
+├── Battle             — robot selection + arena config → battle viewer
+├── Tournament         — round-robin bracket (local, no backend)
+└── Leaderboard        — ELO rankings (localStorage)
 ```
 
 ### 6.2 Robot Editor
 
-The editor is the primary creation surface. It is split into three panels:
+Split into two panels:
 
 ```
 ┌───────────────────────┬─────────────────────────────┐
 │  Hardware Config      │  Program Editor (CodeMirror) │
 │  ─────────────────    │  ────────────────────────    │
-│  Armor      [▓▓░░] 2  │  1  LOOP                     │
-│  Shield     [▓░░░] 1  │  2    RADAR AIM              │
-│  Weapon     [Missile]  │  3    1 FIRE                 │
-│  Engine     [▓▓░░] 2  │  4  POOL                     │
-│  Energy     [▓▓▓░] 3  │                              │
-│  CPU        [▓░░░] 1  │  [Errors]                    │
-│  Cooling    [▓░░░] 1  │  No errors                   │
-│  Radar      [▓▓░░] 2  │                              │
+│  Armor      [Lvl 2]   │  1  LOOP                     │
+│  Shield     [Lvl 1]   │  2    RADAR AIM              │
+│  Weapon     [Bullet]  │  3    1 FIRE                 │
+│  Engine     [Lvl 2]   │  4  POOL                     │
+│  Energy     [Lvl 2]   │                              │
+│  CPU        [Lvl 1]   │  ⚠ Compile errors panel      │
+│  Cooling    [Lvl 1]   │                              │
+│  Radar      [Lvl 2]   │                              │
 │  ─────────────────    │                              │
 │  HP used: 14 / 30     │                              │
-│  HP remaining: 16     │                              │
 └───────────────────────┴─────────────────────────────┘
-│  [ Save ]  [ Test in Battle ]  [ Share ]              │
+│  [ Save ]  [ Test Battle ]  [ Export .rw ]            │
 └───────────────────────────────────────────────────────┘
 ```
 
-**Editor features:**
+**Editor features (implemented):**
 
-- Syntax highlighting for all opcodes, registers, labels, and comments
-- Inline error markers (red gutter icon) with hover messages for compiler errors
-- Opcode autocomplete (Ctrl+Space)
-- Jump-to-label navigation (Ctrl+Click on label reference)
-- Robot icon picker (16 classic pixel-art icons)
-- Import/export as plain-text `.rw` file
+- Syntax highlighting for opcodes, registers, labels, numbers, comments, directives
+- Inline error panel below editor listing all compiler errors
+- `#DEFINE` macro support
+- Import/export as plain-text `.rw` file (export only in v1)
+- Live HP budget counter with colour-coded bar (green → yellow → red)
+- Save blocked when over budget or compile errors present
 
 ### 6.3 Battle Setup
 
-1. Select 2–8 robots from the robot roster (own + downloaded)
-2. Choose arena size (Small: 200×200 / Standard: 300×300 / Large: 500×500)
-3. Set team assignments (optional)
-4. Set tick limit (500–5000)
-5. Click **Start Battle**
+1. Select 2–8 robots via checkboxes
+2. Choose arena size (Small 200 / Standard 300 / Large 500)
+3. Set tick limit (500 / 1000 / 2000 / 5000)
+4. Click **Start Battle** — battle is simulated in a Web Worker
 
 ### 6.4 Battle Viewer
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  [Arena Canvas — 300×300 logical, scaled to fit]            │
-│  Robots rendered as 16×16 sprite; projectiles as dots       │
-│  Shield shown as coloured glow                              │
+│  [Arena Canvas — scaled to 600×600 px display]              │
+│  Robots: coloured circles + aim line + name + HP/energy bar │
+│  Shield: outer glow ring                                     │
+│  Projectiles: white (bullet), orange (missile), blue (drone)│
+│  Destroyed robots: faded with × mark                        │
 └─────────────────────────────────────────────────────────────┘
-│  Tick: 1204 / 2000   Speed: [●○○○] 1×  [▶ Play] [◼ Stop]  │
+│  [▶ Play] [◀] [▶] [⏮] [⏭]  Tick: 1204 / 2000              │
+│  Speed: [1×] [5×] [20×] [Max]      Winner: Tracker wins!   │
 ├────────────────────┬────────────────────┬───────────────────┤
-│ Robot A            │ Robot B            │ Robot C           │
-│ Armor  ██████░  65 │ Armor  ████░░░  40 │ DESTROYED (t=876) │
-│ Energy █████░░  80 │ Energy ███░░░░  45 │                   │
-│ Heat   █░░░░░░  10 │ Heat   ██░░░░░  20 │                   │
+│ Robot A (color)    │ Robot B            │ Robot C (dead)    │
+│ Armor  ██████ 65   │ Armor  ████   40   │ Destroyed         │
+│ Energy █████  80   │ Energy ███    45   │                   │
+│ Heat   █      10   │ Heat   ██     20   │                   │
 └────────────────────┴────────────────────┴───────────────────┘
 ```
 
 **Viewer controls:**
 
-| Control | Action |
+| Action | Keyboard |
 |---|---|
 | Play / Pause | Space |
 | Step forward 1 tick | → |
 | Step back 1 tick | ← |
-| Speed 1× / 5× / 20× / Max | 1/2/3/4 |
-| Jump to tick | Ctrl+G |
-| Export replay | Ctrl+S |
-| Share replay link | Ctrl+Shift+S |
+| Jump to start / end | ⏮ / ⏭ buttons |
+| Speed 1× / 5× / 20× / Max | 1 / 2 / 3 / 4 |
 
 ### 6.5 Tournament Mode
 
-**Bracket formats:**
+**Implemented in v1:** Round-robin only. All matches simulate synchronously on the main thread (no Web Worker). Results include per-match winners and a final standings table sorted by win count.
 
-- **Round Robin** — every robot faces every other; ranked by wins then armor
-- **Single Elimination** — standard bracket, seeded by ELO or manual
-- **Double Elimination** — losers get one more chance
-
-**Tournament flow:**
-
-1. Creator names the tournament, sets format and robot limit
-2. Participants submit one robot per entry (or organiser loads a set)
-3. All battles simulate server-side (or locally for private tournaments)
-4. Results page shows bracket, per-battle replays, and final standings
-5. ELO ratings update after each tournament concludes
-
-**Public tournaments** appear on the Leaderboard page. Private tournaments are accessible only by link.
+**v2 (not yet implemented):** Single elimination, double elimination, server-side simulation for large brackets.
 
 ### 6.6 Leaderboard
 
-- **All-time ELO** — global ranking of robots by rated score
-- **This week** — wins since Monday reset
-- **By weapon type** — filter by primary weapon
-- Each row shows: rank, robot name, owner, win/loss/draw, ELO, link to latest replay
+- Displays all saved robots sorted by ELO rating (default 1200)
+- **Run Rated Matches** button simulates every pairwise match and updates ELO (K=32)
+- Ratings persist in `localStorage` under key `robowar_elo`
+- Columns: rank, robot name, weapon type, HP cost, ELO
 
 ---
 
 ## 7. Networking & Multiplayer
 
+> **v1 status:** All features in this section are **not implemented**. v1 uses localStorage for all persistence. This section describes the planned v2 backend.
+
 ### 7.1 Asynchronous Matchmaking
 
 Battles are **asynchronous** — there is no real-time connection requirement. The server simulates battles in a background queue and stores replays. Players submit robots; the system runs ranked battles automatically.
 
-**Match frequency:**
-
-- Each robot enters the queue for a rated match every 6 hours (configurable)
-- Players can also challenge any public robot to an unranked match at any time
-
-### 7.2 API Endpoints
+### 7.2 API Endpoints (v2)
 
 ```
 POST   /api/robots             — create robot
@@ -554,12 +557,11 @@ GET    /api/users/:id/robots   — list a user's public robots
 
 ### 7.3 Robot Sharing
 
-A robot's definition (program text + hardware config) is exportable as:
+**v1:** Export as `.rw` text file (download). Import from `.rw` file is planned but not yet implemented.
 
-- **`.rw` file** — plain text, importable into any compatible client
-- **Share link** — `robowar.example.com/robots/:id` — view-only page with editor (read-only) and battle button
+**v2:** Share link — `robowar.example.com/robots/:id` — view-only page with read-only editor and battle button.
 
-### 7.4 Authentication
+### 7.4 Authentication (v2)
 
 - Email + password (bcrypt)
 - Optional OAuth via GitHub
@@ -568,68 +570,81 @@ A robot's definition (program text + hardware config) is exportable as:
 
 ### 7.5 Real-time Battle Spectating (v2)
 
-> Out of scope for v1; documented here for forward compatibility.
-
-When two users trigger a live match simultaneously, the server uses Socket.io to push frame-by-frame battle events to both clients, enabling real-time co-watching. The protocol emits delta state (moved robots, new projectiles, destroyed objects) rather than full arena snapshots.
+When two users trigger a live match simultaneously, the server uses Socket.io to push frame-by-frame battle events to both clients. The protocol emits delta state (moved robots, new projectiles, destroyed objects) rather than full arena snapshots.
 
 ---
 
 ## 8. Data Formats
 
-### 8.1 Robot Definition (JSON)
+### 8.1 Robot Definition (JSON — localStorage)
 
 ```json
 {
   "id": "rbt_abc123",
   "name": "Trackstar",
-  "owner": "usr_xyz",
-  "icon": 3,
   "hardware": {
     "armor": 2,
     "shield": 1,
-    "weapon": "missile",
+    "weapon": "bullet",
     "engine": 2,
-    "energy": 3,
+    "energy": 2,
     "cpu": 1,
     "cooling": 1,
     "radar": 2
   },
-  "program": "LOOP\n  RADAR AIM\n  1 FIRE\nPOOL\n",
-  "createdAt": "2026-05-21T00:00:00Z",
-  "updatedAt": "2026-05-21T00:00:00Z"
+  "program": "LOOP\n  RADAR AIM\n  1 FIRE\nPOOL\n"
 }
 ```
 
-### 8.2 Replay Format (JSON)
+### 8.2 Battle Config (passed to Web Worker)
 
 ```json
 {
-  "version": 1,
-  "seed": 48291,
-  "tickLimit": 2000,
-  "arena": { "width": 300, "height": 300 },
-  "robots": [
-    { "robotId": "rbt_abc123", "startX": 50, "startY": 50 },
-    { "robotId": "rbt_def456", "startX": 250, "startY": 250 }
-  ],
-  "result": {
-    "winner": "rbt_abc123",
-    "survivingArmor": 42,
-    "ticksElapsed": 1204
-  }
+  "robots": [ /* array of robot definitions */ ],
+  "arenaWidth":  300,
+  "arenaHeight": 300,
+  "tickLimit":   2000,
+  "seed":        48291
 }
 ```
 
-Full frame data is not stored; the client re-simulates from this header.
+### 8.3 Frame (returned by worker, one per tick)
 
-### 8.3 .rw File Format
+```json
+{
+  "tick": 42,
+  "robots": [
+    {
+      "id": "rbt_abc123",
+      "name": "Trackstar",
+      "x": 145.3, "y": 88.7,
+      "alive": true,
+      "armor": 42,   "maxArmor": 50,
+      "energy": 110, "maxEnergy": 150,
+      "heat": 3,     "maxHeat": 20,
+      "shieldActive": true,
+      "aimAngle": 37.5,
+      "color": "#ff4757"
+    }
+  ],
+  "projectiles": [
+    { "id": 7, "type": "bullet", "x": 200, "y": 100, "alive": true, "radius": 2 }
+  ],
+  "result": null
+}
+```
 
-Plain text, one token per line. Sections delimited by `#`:
+`result` is `null` until the battle ends, then `{ "winnerId", "winnerName", "reason" }`.
+
+Full frame data is held in the browser's memory; replays are not persisted to localStorage in v1.
+
+### 8.4 .rw File Format
+
+Plain text. Sections delimited by `#` directives:
 
 ```
 #NAME Trackstar
-#ICON 3
-#HARDWARE armor=2 shield=1 weapon=missile engine=2 energy=3 cpu=1 cooling=1 radar=2
+#HARDWARE armor=2 shield=1 weapon=bullet engine=2 energy=2 cpu=1 cooling=1 radar=2
 #PROGRAM
 LOOP
   RADAR AIM
@@ -642,12 +657,14 @@ POOL
 
 ## 9. Open Questions
 
-| # | Question | Options | Priority |
+| # | Question | Status | Decision |
 |---|---|---|---|
-| 1 | Should the hardware budget be 30 HP (classic) or adjustable per tournament? | Fixed / Variable | High |
-| 2 | Exact damage values for weapons — mirror original or rebalance for web feel? | Classic / Rebalanced | High |
-| 3 | Should drones have player-writable velocity each tick or be fully autonomous? | Autonomous (classic) / Programmable | Medium |
-| 4 | Team communication — should teammates share a message register? | No / Register pair per team slot | Medium |
-| 5 | ELO K-factor and initial rating? | K=32, 1200 start | Low |
-| 6 | Tick rate for real-time spectating (v2)? | 60 ticks/s sim, 20 fps push | Low |
-| 7 | Maximum program length (instruction count)? | 1000 (classic) / 4000 | Low |
+| 1 | Hardware budget fixed at 30 HP or adjustable per tournament? | **Resolved** | Fixed at 30 HP in v1; per-tournament override is a v2 feature |
+| 2 | Damage values — mirror original or rebalance? | **Resolved** | Spec values used as-is; balance tuning deferred to v2 |
+| 3 | Drones — autonomous or player-writable velocity? | **Resolved** | Autonomous (stationary); fully programmable drone velocity is v2 |
+| 4 | Team communication — shared message register? | **Resolved** | Not implemented in v1; TEAMMATES register is read-only |
+| 5 | ELO K-factor and initial rating? | **Resolved** | K=32, 1200 start; stored in localStorage |
+| 6 | Tick rate for real-time spectating? | **Deferred** | Not applicable until v2 backend is implemented |
+| 7 | Maximum program length? | **Open** | No hard limit in v1; stack capped at 256 entries; bytecode length unconstrained |
+| 8 | `.rw` file import in editor? | **Open** | Export implemented; import UI not yet built |
+| 9 | Tournament formats beyond round robin? | **Open** | Single and double elimination deferred to v2 |
