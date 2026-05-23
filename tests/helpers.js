@@ -6,13 +6,23 @@
 export async function resetApp(page) {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
+  await dismissSplash(page);
+}
+
+/** Dismiss the splash page if it is showing, then wait for the nav bar. */
+async function dismissSplash(page) {
+  const splash = page.locator('.splash');
+  const isSplash = await splash.isVisible().catch(() => false);
+  if (isSplash) {
+    await page.locator('.splash-btn-primary').click();
+  }
   await page.waitForSelector('.nav', { timeout: 5000 });
 }
 
 /** Navigate to the app with a clean slate. */
 export async function loadApp(page) {
   await page.goto('/');
-  await page.waitForSelector('.nav', { timeout: 5000 });
+  await dismissSplash(page);
 }
 
 /** Click a nav link by label text. */
