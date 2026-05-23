@@ -48,7 +48,7 @@ export default function SplashPage({ onEnter }) {
             Web version vibe coded in <strong>May 2026</strong> by <strong>Michael Morrow</strong> using{' '}
             <a
               className="splash-credit-link"
-              href="https://claude.ai/claude-code"
+              href="https://claude.ai/code"
               target="_blank"
               rel="noopener noreferrer"
             >
