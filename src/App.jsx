@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Nav from './components/Nav.jsx';
+import SplashPage from './components/SplashPage.jsx';
 import MyRobots from './components/MyRobots.jsx';
 import RobotEditor from './components/Editor/RobotEditor.jsx';
 import BattleSetup from './components/Battle/BattleSetup.jsx';
@@ -8,6 +9,7 @@ import TournamentBrowser from './components/Tournament/TournamentBrowser.jsx';
 import Leaderboard from './components/Leaderboard/Leaderboard.jsx';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [page, setPage] = useState('robots');
   const [params, setParams] = useState({});
 
@@ -33,6 +35,10 @@ export default function App() {
       default:
         return <MyRobots navigate={navigate} />;
     }
+  }
+
+  if (showSplash) {
+    return <SplashPage onEnter={() => setShowSplash(false)} />;
   }
 
   return (

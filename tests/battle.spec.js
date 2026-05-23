@@ -144,7 +144,7 @@ test('battle viewer shows speed buttons', async ({ page }) => {
   await startBattle(page);
   await page.waitForSelector('canvas', { timeout: 15000 });
   const speedBtns = page.locator('.speed-btn');
-  await expect(speedBtns).toHaveCount(4);
+  await expect(speedBtns).toHaveCount(6);
 });
 
 test('battle viewer shows robot stats after loading', async ({ page }) => {

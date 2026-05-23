@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ArenaCanvas from './ArenaCanvas.jsx';
 
-const SPEEDS = [1, 5, 20, 'max'];
+const SPEEDS = [0.1, 0.25, 1, 5, 20, 'max'];
 
 export default function BattleViewer({ config, navigate }) {
   const [frames, setFrames]       = useState([]);
@@ -16,6 +16,7 @@ export default function BattleViewer({ config, navigate }) {
   const playingRef  = useRef(false);
   const speedRef    = useRef(1);
   const rafRef      = useRef(null);
+  const accumRef    = useRef(0);
 
   // Sync refs
   useEffect(() => { speedRef.current = speed; }, [speed]);
@@ -63,7 +64,17 @@ export default function BattleViewer({ config, navigate }) {
 
     setCurrentTick(prev => {
       const spd = speedRef.current;
-      const advance = spd === 'max' ? total : spd;
+      let advance;
+      if (spd === 'max') {
+        advance = total;
+      } else if (spd < 1) {
+        accumRef.current += spd;
+        advance = Math.floor(accumRef.current);
+        accumRef.current -= advance;
+      } else {
+        advance = spd;
+      }
+      if (advance === 0) return prev;
       const next = Math.min(prev + advance, total - 1);
       if (next >= total - 1) {
         playingRef.current = false;
@@ -82,6 +93,7 @@ export default function BattleViewer({ config, navigate }) {
     if (currentTick >= framesRef.current.length - 1) {
       setCurrentTick(0);
     }
+    accumRef.current = 0;
     playingRef.current = true;
     setPlaying(true);
     rafRef.current = requestAnimationFrame(animate);
@@ -116,10 +128,12 @@ export default function BattleViewer({ config, navigate }) {
       if (e.code === 'Space')      { e.preventDefault(); playing ? pause() : play(); }
       if (e.code === 'ArrowRight') stepBy(1);
       if (e.code === 'ArrowLeft')  stepBy(-1);
-      if (e.key === '1') setSpeed(1);
-      if (e.key === '2') setSpeed(5);
-      if (e.key === '3') setSpeed(20);
-      if (e.key === '4') setSpeed('max');
+      if (e.key === '1') setSpeed(0.1);
+      if (e.key === '2') setSpeed(0.25);
+      if (e.key === '3') setSpeed(1);
+      if (e.key === '4') setSpeed(5);
+      if (e.key === '5') setSpeed(20);
+      if (e.key === '6') setSpeed('max');
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -181,7 +195,7 @@ export default function BattleViewer({ config, navigate }) {
                   className={`speed-btn${speed === s ? ' active' : ''}`}
                   onClick={() => setSpeed(s)}
                 >
-                  {s === 'max' ? 'Max' : `${s}×`}
+                  {s === 'max' ? 'Max' : s < 1 ? `${Math.round(s * 100)}%` : `${s}×`}
                 </button>
               ))}
             </div>

@@ -1,6 +1,80 @@
 import { test, expect } from '@playwright/test';
 import { loadApp, navTo } from './helpers.js';
 
+// ── Splash page ──────────────────────────────────────────────────────────────
+
+test('splash page appears on first load', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash')).toBeVisible();
+});
+
+test('splash page shows RoboWar logo', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-logo')).toContainText('RoboWar');
+});
+
+test('splash page has Enter the Arena button', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-btn-primary')).toContainText('Enter the Arena');
+});
+
+test("splash page has Programmer's Guide download link", async ({ page }) => {
+  await page.goto('/');
+  const link = page.locator('.splash-btn-secondary');
+  await expect(link).toContainText("Programmer's Guide");
+  await expect(link).toHaveAttribute('download');
+});
+
+test('Enter the Arena dismisses splash and shows nav', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.splash-btn-primary').click();
+  await expect(page.locator('.splash')).not.toBeVisible();
+  await expect(page.locator('.nav')).toBeVisible();
+});
+
+test('splash is not shown after entering the arena', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.splash-btn-primary').click();
+  await expect(page.locator('.nav')).toBeVisible();
+  await expect(page.locator('.splash')).not.toBeVisible();
+});
+
+// ── Splash credits ───────────────────────────────────────────────────────────
+
+test('splash credits section is visible', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-credits')).toBeVisible();
+});
+
+test('splash credits name original creator Rod McFarland', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-credits')).toContainText('Rod McFarland');
+});
+
+test('splash credits name Peter Spear', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-credits')).toContainText('Peter Spear');
+});
+
+test('splash credits name Michael Morrow', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-credits')).toContainText('Michael Morrow');
+});
+
+test('splash credits mention May 2026', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.splash-credits')).toContainText('May 2026');
+});
+
+test('splash credits include Claude Code link', async ({ page }) => {
+  await page.goto('/');
+  const link = page.locator('.splash-credit-link');
+  await expect(link).toContainText('Claude Code');
+  await expect(link).toHaveAttribute('href', /claude/);
+});
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+
 test.beforeEach(async ({ page }) => {
   await loadApp(page);
 });

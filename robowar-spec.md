@@ -433,7 +433,18 @@ Each tick, the radar scans a cone of `radarCone` degrees centered on the robot's
 
 ## 6. User Interface & Game Modes
 
-### 6.1 Navigation
+### 6.1 Splash Page
+
+Displayed on first load before the main navigation. Full-screen dark background with floating particles.
+
+- **⚔ Enter the Arena** — dismisses the splash and shows the main app (My Robots)
+- **📖 Programmer's Guide** — downloads `RoboWar-Programmer-Guide.pdf` (served from `public/`)
+- Hint text directs new players to read the guide before entering
+- **Credits footer** (below a divider):
+  - Original *RoboWar* created by **Rod McFarland** (1989–1994); additional development by **Peter Spear** and the RoboWar community
+  - Web version vibe coded in **May 2026** by **Michael Morrow** using **Claude Code** (linked to `https://claude.ai/claude-code`)
+
+### 6.2 Navigation
 
 ```
 Nav bar
@@ -443,7 +454,7 @@ Nav bar
 └── Leaderboard        — ELO rankings (localStorage)
 ```
 
-### 6.2 Robot Editor
+### 6.3 Robot Editor
 
 Split into two panels:
 
@@ -475,14 +486,14 @@ Split into two panels:
 - Live HP budget counter with colour-coded bar (green → yellow → red)
 - Save blocked when over budget or compile errors present
 
-### 6.3 Battle Setup
+### 6.4 Battle Setup
 
 1. Select 2–8 robots via checkboxes
 2. Choose arena size (Small 200 / Standard 300 / Large 500)
 3. Set tick limit (500 / 1000 / 2000 / 5000)
 4. Click **Start Battle** — battle is simulated in a Web Worker
 
-### 6.4 Battle Viewer
+### 6.5 Battle Viewer
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -493,7 +504,7 @@ Split into two panels:
 │  Destroyed robots: faded with × mark                        │
 └─────────────────────────────────────────────────────────────┘
 │  [▶ Play] [◀] [▶] [⏮] [⏭]  Tick: 1204 / 2000              │
-│  Speed: [1×] [5×] [20×] [Max]      Winner: Tracker wins!   │
+│  Speed: [10%] [25%] [1×] [5×] [20×] [Max]  Winner: …       │
 ├────────────────────┬────────────────────┬───────────────────┤
 │ Robot A (color)    │ Robot B            │ Robot C (dead)    │
 │ Armor  ██████ 65   │ Armor  ████   40   │ Destroyed         │
@@ -510,15 +521,15 @@ Split into two panels:
 | Step forward 1 tick | → |
 | Step back 1 tick | ← |
 | Jump to start / end | ⏮ / ⏭ buttons |
-| Speed 1× / 5× / 20× / Max | 1 / 2 / 3 / 4 |
+| Speed 10% / 25% / 1× / 5× / 20× / Max | 1 / 2 / 3 / 4 / 5 / 6 |
 
-### 6.5 Tournament Mode
+### 6.6 Tournament Mode
 
 **Implemented in v1:** Round-robin only. All matches simulate synchronously on the main thread (no Web Worker). Results include per-match winners and a final standings table sorted by win count.
 
 **v2 (not yet implemented):** Single elimination, double elimination, server-side simulation for large brackets.
 
-### 6.6 Leaderboard
+### 6.7 Leaderboard
 
 - Displays all saved robots sorted by ELO rating (default 1200)
 - **Run Rated Matches** button simulates every pairwise match and updates ELO (K=32)
