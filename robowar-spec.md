@@ -16,7 +16,8 @@
 6. [User Interface & Game Modes](#6-user-interface--game-modes)
 7. [Networking & Multiplayer](#7-networking--multiplayer)
 8. [Data Formats](#8-data-formats)
-9. [Open Questions](#9-open-questions)
+9. [Test Case Structure](#9-test-case-structure)
+10. [Open Questions](#10-open-questions)
 
 ---
 
@@ -667,7 +668,78 @@ POOL
 
 ---
 
-## 9. Open Questions
+## 9. Test Case Structure
+
+The project uses **Playwright** for all testing. Tests are co-located under `tests/` and run against a live Vite dev server.
+
+### 9.1 Framework & Configuration
+
+| Setting | Value |
+|---|---|
+| Framework | `@playwright/test` v1.60 |
+| Browser | Chromium (Desktop Chrome preset) |
+| Base URL | `http://localhost:5174` |
+| Parallelism | Fully parallel (5 workers locally, 1 in CI) |
+| Retries | 0 locally, 2 in CI |
+| Web server | `npm run dev` — auto-started by Playwright; reused if already running |
+| Config file | `playwright.config.js` |
+
+Run the suite: `npm test` (or `./node_modules/.bin/playwright test`)
+
+### 9.2 File Layout
+
+```
+tests/
+├── helpers.js              — shared utilities (loadApp, resetApp, seedRobots, …)
+├── navigation.spec.js      — splash page, credits, nav bar, page routing
+├── robots.spec.js          — My Robots list (CRUD, display)
+├── editor.spec.js          — Robot Editor (hardware panel, code editor, save/compile)
+├── battle.spec.js          — Battle Setup + Battle Viewer (controls, speed buttons, stats)
+├── tournament.spec.js      — Tournament mode (selection, round-robin, standings)
+├── leaderboard.spec.js     — Leaderboard (ELO display, rated matches)
+└── engine/
+    ├── compiler.spec.js    — Compiler unit tests (opcodes, labels, #DEFINE, errors)
+    ├── vm.spec.js          — VM unit tests (stack ops, registers, control flow)
+    └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
+```
+
+### 9.3 Test Counts (265 total)
+
+| File | Tests | Coverage area |
+|---|---|---|
+| `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
+| `battle.spec.js` | 27 | Battle setup UI, viewer controls, speed buttons, robot stats |
+| `editor.spec.js` | 22 | Hardware panel, code editor, save/compile, error display |
+| `engine/compiler.spec.js` | 64 | All opcodes, labels, #DEFINE macros, error cases |
+| `engine/vm.spec.js` | 59 | Stack operations, arithmetic, control flow, registers |
+| `engine/combat.spec.js` | 23 | Spawn, physics, projectiles, damage, shield, win conditions |
+| `leaderboard.spec.js` | 16 | ELO display, rated matches, column layout |
+| `tournament.spec.js` | 18 | Robot selection, round-robin results, standings table |
+| `robots.spec.js` | 12 | Robot list CRUD, color dot, editor navigation |
+
+### 9.4 Shared Helpers (`tests/helpers.js`)
+
+| Helper | Description |
+|---|---|
+| `loadApp(page)` | Navigate to `/`, dismiss splash, wait for nav bar |
+| `resetApp(page)` | Clear localStorage, reload, dismiss splash, wait for nav bar |
+| `seedRobots(page, robots)` | Write robot array to localStorage, reload, dismiss splash |
+| `navTo(page, label)` | Click a nav button by label text |
+| `getRobotNames(page)` | Return text content of all `.robot-name` elements |
+| `makeRobot(overrides)` | Return a minimal valid robot definition object |
+| `SAMPLE_NAMES` | `['Tracker', 'Evader', 'Sniper']` — the three built-in sample robots |
+| `DEFAULT_SENSORS` | Default sensor object used in VM unit tests |
+
+### 9.5 Key Conventions
+
+- **Splash handling** — every test that reloads the page must call `loadApp`, `resetApp`, or `seedRobots` (which all invoke the internal `dismissSplash` helper). Direct `page.waitForSelector('.nav')` calls are not permitted since the nav is hidden behind the splash on every fresh load.
+- **UI tests** use `test.beforeEach` to load a clean app state via `loadApp` + `resetApp`. Engine unit tests import modules directly and do not require a browser page.
+- **Engine unit tests** (`engine/`) import `compiler.js`, `vm.js`, and `combat.js` directly — no DOM involved. They verify correctness of the stack machine and combat simulation independently of the UI.
+- **Timeouts** — canvas and battle-viewer tests use `page.waitForSelector('canvas', { timeout: 15000 })` to allow time for the Web Worker to complete simulation before assertions run.
+
+---
+
+## 10. Open Questions
 
 | # | Question | Status | Decision |
 |---|---|---|---|
