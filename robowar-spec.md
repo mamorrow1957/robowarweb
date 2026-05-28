@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.2 (updated to match v1 implementation)
+**Version:** 0.3 (splash page, slow-motion speeds, nav Docs link, test structure)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -678,7 +678,7 @@ The project uses **Playwright** for all testing. Tests are co-located under `tes
 |---|---|
 | Framework | `@playwright/test` v1.60 |
 | Browser | Chromium (Desktop Chrome preset) |
-| Base URL | `http://localhost:5174` |
+| Base URL | `http://localhost:5173` |
 | Parallelism | Fully parallel (5 workers locally, 1 in CI) |
 | Retries | 0 locally, 2 in CI |
 | Web server | `npm run dev` — auto-started by Playwright; reused if already running |
