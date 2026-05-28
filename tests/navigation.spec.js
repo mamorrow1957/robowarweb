@@ -27,7 +27,7 @@ test("splash page has Programmer's Guide link", async ({ page }) => {
 
 test("splash page has Programmer's Guide download link", async ({ page }) => {
   await page.goto('/');
-  const dl = page.locator('a[download][href*="programmer-guide"]').first();
+  const dl = page.locator('a[download][href*=".pdf"]').first();
   await expect(dl).toBeVisible();
   await expect(dl).toHaveAttribute('download');
 });
@@ -97,7 +97,7 @@ test('nav bar has Docs download link', async ({ page }) => {
   const dl = page.locator('.nav-docs-download');
   await expect(dl).toBeVisible();
   await expect(dl).toHaveAttribute('download');
-  await expect(dl).toHaveAttribute('href', /programmer-guide/);
+  await expect(dl).toHaveAttribute('href', /\.pdf/);
 });
 
 test('page title is RoboWar Web', async ({ page }) => {

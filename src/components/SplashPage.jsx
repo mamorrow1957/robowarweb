@@ -35,11 +35,11 @@ export default function SplashPage({ onEnter }) {
               Programmer's Guide
             </a>
             <a
-              href="/programmer-guide.html"
-              download="RoboWar-Programmer-Guide.html"
+              href="/RoboWar-Programmer-Guide.pdf"
+              download="RoboWar-Programmer-Guide.pdf"
               style={{ fontSize: 12, color: 'var(--text-dim)', textDecoration: 'none', opacity: 0.7 }}
             >
-              ⬇ download
+              ⬇ download PDF
             </a>
           </div>
         </div>
