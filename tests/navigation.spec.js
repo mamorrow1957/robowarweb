@@ -18,11 +18,11 @@ test('splash page has Enter the Arena button', async ({ page }) => {
   await expect(page.locator('.splash-btn-primary')).toContainText('Enter the Arena');
 });
 
-test("splash page has Programmer's Guide download link", async ({ page }) => {
+test("splash page has Programmer's Guide link", async ({ page }) => {
   await page.goto('/');
   const link = page.locator('.splash-btn-secondary');
   await expect(link).toContainText("Programmer's Guide");
-  await expect(link).toHaveAttribute('download');
+  await expect(link).toHaveAttribute('href', /programmer-guide/);
 });
 
 test('Enter the Arena dismisses splash and shows nav', async ({ page }) => {
@@ -79,11 +79,11 @@ test.beforeEach(async ({ page }) => {
   await loadApp(page);
 });
 
-test('nav bar has Docs download link', async ({ page }) => {
+test('nav bar has Docs link', async ({ page }) => {
   const link = page.locator('.nav-docs-link');
   await expect(link).toBeVisible();
   await expect(link).toContainText('Docs');
-  await expect(link).toHaveAttribute('download');
+  await expect(link).toHaveAttribute('href', /programmer-guide/);
 });
 
 test('page title is RoboWar Web', async ({ page }) => {

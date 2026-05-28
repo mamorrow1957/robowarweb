@@ -26,8 +26,9 @@ export default function SplashPage({ onEnter }) {
           </button>
           <a
             className="splash-btn splash-btn-secondary"
-            href="/RoboWar-Programmer-Guide.pdf"
-            download="RoboWar-Programmer-Guide.pdf"
+            href="/programmer-guide.html"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             <span className="splash-btn-icon">📖</span>
             Programmer's Guide

@@ -22,9 +22,10 @@ export default function Nav({ page, navigate }) {
       ))}
       <a
         className="nav-docs-link"
-        href="/RoboWar-Programmer-Guide.pdf"
-        download="RoboWar-Programmer-Guide.pdf"
-        title="Download Programmer's Guide (PDF)"
+        href="/programmer-guide.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Programmer's Guide"
       >
         📖 Docs
       </a>

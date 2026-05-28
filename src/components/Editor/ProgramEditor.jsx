@@ -5,6 +5,7 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
+import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
 
 const OPCODES = [
   'ADD','SUB','MUL','DIV','MOD','ABS','NEG','MAX','MIN',
@@ -12,13 +13,48 @@ const OPCODES = [
   'AND','OR','NOT','XOR',
   'IF','ELSE','ENDIF','LOOP','POOL','GOTO','CALL','RETURN',
   'STORE','RECALL',
+  // v0.5 math
+  'SQRT','DIST','SIN','COS','TAN','ARCTAN','ARCSIN','ARCCOS',
+  // v0.5 interrupts
+  'SETINT','SETPARAM','INTON','INTOFF','RTI','FLUSHINT',
 ];
 
 const REGISTERS = [
+  // Read-only sensors
   'ENERGY','ARMOR','HEAT','RANGE','RADAR','SPEEDX','SPEEDY',
   'POSX','POSY','COLLISION','STUNNED','TEAMMATES','RANDOM','TIME',
+  // Write-only actuators
   'SHIELD','GUNX','GUNY','FIRE','THRUSTX','THRUSTY','BRAKE','BEEP','AIM',
+  // v0.5 read sensors
+  'DAMAGE','DOPPLER','TOP','BOT','LEFT','RIGHT','ID',
+  // v0.5 write/state registers
+  'LOOK','SCAN',
+  // v0.5 aliases
+  'X','Y','ROBOTS','CHRONON',
 ];
+
+const INTERRUPT_NAMES = [
+  'COLLISION','WALL','DAMAGE','SHIELD',
+  'TOP','BOTTOM','LEFT','RIGHT',
+  'RADAR','RANGE','ROBOTS','SIGNAL','CHRONON',
+];
+
+const ALL_COMPLETIONS = [
+  ...OPCODES.map(label => ({ label, type: 'keyword' })),
+  ...REGISTERS.map(label => ({ label, type: 'variable' })),
+  ...INTERRUPT_NAMES.map(label => ({ label, type: 'constant' })),
+  { label: '#DEFINE', type: 'keyword' },
+];
+
+function roboWarCompletions(context) {
+  const word = context.matchBefore(/[#A-Z_][A-Z0-9_]*/i);
+  if (!word || (word.from === word.to && !context.explicit)) return null;
+  return {
+    from: word.from,
+    options: ALL_COMPLETIONS,
+    validFor: /^[#A-Z_][A-Z0-9_]*$/i,
+  };
+}
 
 const roboWarLang = StreamLanguage.define({
   token(stream) {
@@ -37,8 +73,9 @@ const roboWarLang = StreamLanguage.define({
     const word = stream.match(/[A-Z_][A-Z0-9_]*/i);
     if (word) {
       const tok = word[0].toUpperCase();
-      if (OPCODES.includes(tok))    return 'keyword';
-      if (REGISTERS.includes(tok))  return 'variableName';
+      if (OPCODES.includes(tok))          return 'keyword';
+      if (REGISTERS.includes(tok))        return 'variableName';
+      if (INTERRUPT_NAMES.includes(tok))  return 'typeName';
       return 'name';
     }
 
@@ -55,6 +92,7 @@ const rwTheme = HighlightStyle.define([
   { tag: tags.operator,     color: '#ffa657' },
   { tag: tags.meta,         color: '#d2a8ff' },
   { tag: tags.labelName,    color: '#a5d6ff' },
+  { tag: tags.typeName,     color: '#e3b341' },  // interrupt type names
   { tag: tags.name,         color: '#e6edf3' },
 ]);
 
@@ -82,7 +120,7 @@ export default function ProgramEditor({ value, onChange, errors }) {
         extensions: [
           lineNumbers(),
           highlightActiveLine(),
-          keymap.of([...defaultKeymap, indentWithTab]),
+          keymap.of([...defaultKeymap, indentWithTab, ...completionKeymap]),
           roboWarLang,
           syntaxHighlighting(rwTheme),
           editorTheme,
@@ -92,6 +130,7 @@ export default function ProgramEditor({ value, onChange, errors }) {
             }
           }),
           EditorView.lineWrapping,
+          autocompletion({ override: [roboWarCompletions] }),
         ],
       }),
       parent: containerRef.current,

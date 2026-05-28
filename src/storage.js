@@ -51,6 +51,91 @@ LOOP
   ENDIF
 POOL`,
   },
+  {
+    id: 'rbt_wallavoider',
+    name: 'WallAvoider',
+    hardware: { armor:2, shield:0, weapon:'bullet', engine:3, energy:2, cpu:2, cooling:1, radar:2 },
+    program:
+`; Wall-proximity interrupt steers the robot away from borders.
+SETINT WALL wallHandler
+SETPARAM WALL 50
+INTON
+
+LOOP
+  RADAR AIM
+  1 FIRE
+POOL
+
+wallHandler:
+  LEFT 50 <
+  IF
+    3 THRUSTX
+  ELSE
+    RIGHT 50 <
+    IF
+      -3 THRUSTX
+    ENDIF
+  ENDIF
+  TOP 50 <
+  IF
+    3 THRUSTY
+  ELSE
+    BOT 50 <
+    IF
+      -3 THRUSTY
+    ENDIF
+  ENDIF
+  RTI`,
+  },
+  {
+    id: 'rbt_doppler',
+    name: 'DopplerDuelist',
+    hardware: { armor:2, shield:1, weapon:'bullet', engine:2, energy:2, cpu:2, cooling:1, radar:3 },
+    program:
+`; Lead shots using DOPPLER radial velocity to predict enemy position.
+#DEFINE bearing 1
+#DEFINE lead 2
+
+LOOP
+  RADAR STORE bearing
+  RECALL bearing AIM
+  DOPPLER 4 / STORE lead
+  RECALL bearing RECALL lead + AIM
+  RANGE 0 >
+  IF
+    1 FIRE
+  ENDIF
+  ENERGY 40 >
+  IF
+    1 SHIELD
+  ELSE
+    0 SHIELD
+  ENDIF
+POOL`,
+  },
+  {
+    id: 'rbt_reactive',
+    name: 'ReactiveShield',
+    hardware: { armor:3, shield:2, weapon:'bullet', engine:1, energy:3, cpu:1, cooling:1, radar:1 },
+    program:
+`; Raise shield reactively when the DAMAGE interrupt fires.
+SETINT DAMAGE damageHandler
+SETPARAM DAMAGE 3
+INTON
+
+LOOP
+  RADAR AIM
+  1 FIRE
+  ENERGY 15 <
+  IF
+    0 SHIELD
+  ENDIF
+POOL
+
+damageHandler:
+  1 SHIELD
+  RTI`,
+  },
 ];
 
 function load() {

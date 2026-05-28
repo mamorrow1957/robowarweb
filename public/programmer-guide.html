@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoboWar Programmer's Guide</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #e3b341;
+    --red: #f85149;
+    --purple: #d2a8ff;
+    --orange: #ffa657;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 0;
+  }
+  .wrapper { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 2.4em; color: #fff; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4em; color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px; margin: 36px 0 16px;
+  }
+  h3 { font-size: 1.1em; color: var(--yellow); margin: 24px 0 10px; }
+  h4 { font-size: 0.95em; color: var(--text); margin: 16px 0 6px; font-weight: 600; }
+  p { margin: 8px 0; color: var(--text); }
+  .subtitle { color: var(--text-dim); font-size: 1em; margin-bottom: 32px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  table {
+    border-collapse: collapse; width: 100%;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--surface); color: var(--text-dim);
+    font-weight: 600; text-align: left;
+    padding: 6px 10px; border: 1px solid var(--border);
+  }
+  td {
+    padding: 5px 10px; border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #0f1520; }
+
+  code {
+    background: var(--surface); color: var(--orange);
+    padding: 1px 5px; border-radius: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre .kw  { color: #ff7b72; }
+  pre .reg { color: #79c0ff; }
+  pre .num { color: #f2cc60; }
+  pre .cmt { color: #6e7681; font-style: italic; }
+  pre .lbl { color: #a5d6ff; }
+  pre .int { color: #e3b341; }
+
+  .note {
+    background: #1c2a1c; border: 1px solid #2d4a2d;
+    border-radius: 6px; padding: 10px 14px; margin: 12px 0;
+  }
+  .note strong { color: var(--green); }
+  .warn {
+    background: #2a1c1c; border: 1px solid #4a2d2d;
+    border-radius: 6px; padding: 10px 14px; margin: 12px 0;
+  }
+  .warn strong { color: var(--red); }
+  .tip {
+    background: #1c1c2a; border: 1px solid #2d2d4a;
+    border-radius: 6px; padding: 10px 14px; margin: 12px 0;
+  }
+  .tip strong { color: var(--purple); }
+
+  .toc { margin: 24px 0; }
+  .toc ul { list-style: none; column-count: 2; column-gap: 32px; }
+  .toc li { margin: 4px 0; }
+  .toc a { color: var(--text-dim); font-size: 13px; }
+  .toc a:hover { color: var(--accent); }
+
+  .opcode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
+  @media (max-width: 640px) { .opcode-grid { grid-template-columns: 1fr; } .toc ul { column-count: 1; } }
+  .badge {
+    display: inline-block;
+    background: #1a2a4a; color: var(--accent);
+    font-size: 11px; font-weight: 600;
+    padding: 1px 6px; border-radius: 3px;
+    border: 1px solid var(--accent);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .badge.new { background: #1a3a1a; color: var(--green); border-color: var(--green); }
+  .section-anchor { color: inherit; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<h1>RoboWar Programmer's Guide</h1>
+<p class="subtitle">Web Edition · v1.0 with v0.5 extensions · May 2026</p>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ul>
+    <li><a href="#overview">§1 Overview</a></li>
+    <li><a href="#hardware">§2 Hardware System</a></li>
+    <li><a href="#language">§3 Language Reference</a></li>
+    <li><a href="#registers">§4 Registers</a></li>
+    <li><a href="#math">§5 Math &amp; Trig</a></li>
+    <li><a href="#control">§6 Control Flow</a></li>
+    <li><a href="#interrupts">§7 Interrupt System</a></li>
+    <li><a href="#examples">§8 Example Programs</a></li>
+    <li><a href="#tips">§9 Strategy Tips</a></li>
+  </ul>
+</div>
+
+<!-- §1 Overview -->
+<h2 id="overview"><a class="section-anchor" href="#overview">§1 Overview</a></h2>
+
+<p>RoboWar is a programming game. You write a program that runs autonomously during each battle — you don't control your robot in real time. Programs execute on a <strong>stack machine</strong> (similar to Forth): push values, read sensor registers, write actuator registers, and use control flow to react to the arena.</p>
+
+<p>Each tick (called a <em>chronon</em>), every robot's VM runs for a fixed number of cycles determined by its CPU hardware. The arena is 300×300 units. Coordinates are measured from the top-left corner; positive Y goes downward.</p>
+
+<div class="note">
+  <strong>Key rule:</strong> The stack holds 32-bit integers. All trig functions use degrees and return values scaled by ×1000 (so <code>SIN 90</code> returns <code>1000</code> meaning 1.000).
+</div>
+
+<!-- §2 Hardware -->
+<h2 id="hardware"><a class="section-anchor" href="#hardware">§2 Hardware System</a></h2>
+
+<p>Each robot has a <strong>30 hardware-point budget</strong>. Spend points across eight components. Unspent points are wasted — optimise your build for your strategy.</p>
+
+<table>
+  <tr><th>Component</th><th>Levels (cost)</th><th>Effect</th></tr>
+  <tr><td><strong>Armor</strong></td><td>0(0) · 1(2) · 2(4) · 3(6) · 4(8)</td><td>Max HP: 15 / 30 / 50 / 75 / 100</td></tr>
+  <tr><td><strong>Shield</strong></td><td>0(0) · 1(2) · 2(4) · 3(6)</td><td>Damage ×1.0 / ×0.75 / ×0.50 / ×0.30; drains 0/2/3/5 energy/tick</td></tr>
+  <tr><td><strong>Weapon</strong></td><td>none(0) · bullet(2) · missile(4) · drone(6) · triple(6)</td><td>See weapon table below</td></tr>
+  <tr><td><strong>Engine</strong></td><td>0(0) · 1(2) · 2(4) · 3(6)</td><td>Max speed: 4/6/8/12; accel: 1/2/3/4</td></tr>
+  <tr><td><strong>Energy</strong></td><td>0(0) · 1(2) · 2(4) · 3(6)</td><td>Max pool: 50/100/150/200; recharge 1/2/3/4/tick</td></tr>
+  <tr><td><strong>CPU</strong></td><td>0(0) · 1(2) · 2(4) · 3(6)</td><td>Cycles/tick: 5 / 10 / 20 / 40</td></tr>
+  <tr><td><strong>Cooling</strong></td><td>0(0) · 1(2) · 2(4)</td><td>Heat dissipation: 1 / 2 / 4 per tick</td></tr>
+  <tr><td><strong>Radar</strong></td><td>0(0) · 1(2) · 2(4) · 3(6)</td><td>Range: 200/350/500/999; cone: 60°/120°/180°/360°</td></tr>
+</table>
+
+<h3>Weapon Table</h3>
+<table>
+  <tr><th>Type</th><th>Cost</th><th>Damage</th><th>Speed</th><th>Heat</th><th>Notes</th></tr>
+  <tr><td>bullet</td><td>2</td><td>3</td><td>15</td><td>1</td><td>Fast, unlimited ammo</td></tr>
+  <tr><td>missile</td><td>4</td><td>8</td><td>8</td><td>3</td><td>Tracks target for 5 ticks, bounces once off walls</td></tr>
+  <tr><td>drone</td><td>6</td><td>4</td><td>—</td><td>5</td><td>Stationary, lives 30 ticks; damages enemies that pass through</td></tr>
+  <tr><td>triple</td><td>6</td><td>3×3</td><td>15</td><td>4</td><td>3-bullet spread: –12°, 0°, +12° from aim</td></tr>
+</table>
+
+<div class="tip">
+  <strong>Tip:</strong> Heat caps at 20. If your robot fires until heat ≥ 20 it cannot fire again until it cools. High-rate weapons need Cooling investment.
+</div>
+
+<!-- §3 Language -->
+<h2 id="language"><a class="section-anchor" href="#language">§3 Language Reference</a></h2>
+
+<p>Programs are plain text. Each line may contain multiple tokens separated by whitespace. Semicolons begin comments that extend to end-of-line.</p>
+
+<h3>Stack Machine Basics</h3>
+<p>All operations use a last-in-first-out stack. Integers are 32-bit signed. The stack holds up to 256 values; overflow drops the oldest entry. An underflowing pop returns 0.</p>
+
+<pre>
+<span class="num">5</span> <span class="num">3</span> <span class="kw">ADD</span>          <span class="cmt">; pushes 5, then 3, then pops both and pushes 8</span>
+<span class="num">10</span> <span class="kw">DUP</span> <span class="kw">MUL</span>      <span class="cmt">; pushes 10, duplicates → [10,10], MUL → [100]</span>
+</pre>
+
+<h3>Arithmetic &amp; Logic</h3>
+<table>
+  <tr><th>Token(s)</th><th>Stack effect</th><th>Description</th></tr>
+  <tr><td><code>ADD</code> <code>+</code></td><td>a b → a+b</td><td>Integer addition</td></tr>
+  <tr><td><code>SUB</code> <code>-</code></td><td>a b → a−b</td><td>Integer subtraction</td></tr>
+  <tr><td><code>MUL</code> <code>*</code></td><td>a b → a×b</td><td>32-bit multiply</td></tr>
+  <tr><td><code>DIV</code> <code>/</code></td><td>a b → a÷b</td><td>Integer divide, truncates toward zero; b=0 → 0</td></tr>
+  <tr><td><code>MOD</code></td><td>a b → a mod b</td><td>Modulo (always non-negative)</td></tr>
+  <tr><td><code>ABS</code></td><td>a → |a|</td><td>Absolute value</td></tr>
+  <tr><td><code>NEG</code></td><td>a → −a</td><td>Negate</td></tr>
+  <tr><td><code>MAX</code></td><td>a b → max(a,b)</td><td>Maximum</td></tr>
+  <tr><td><code>MIN</code></td><td>a b → min(a,b)</td><td>Minimum</td></tr>
+  <tr><td><code>AND</code></td><td>a b → 1 or 0</td><td>Logical AND (non-zero = true)</td></tr>
+  <tr><td><code>OR</code></td><td>a b → 1 or 0</td><td>Logical OR</td></tr>
+  <tr><td><code>NOT</code></td><td>a → 0 or 1</td><td>Logical NOT</td></tr>
+  <tr><td><code>XOR</code></td><td>a b → a⊕b</td><td>Bitwise XOR</td></tr>
+  <tr><td><code>EQ</code> <code>=</code></td><td>a b → 1 or 0</td><td>Equal</td></tr>
+  <tr><td><code>NEQ</code> <code>&lt;&gt;</code></td><td>a b → 1 or 0</td><td>Not equal</td></tr>
+  <tr><td><code>LT</code> <code>&lt;</code></td><td>a b → 1 or 0</td><td>Less than</td></tr>
+  <tr><td><code>GT</code> <code>&gt;</code></td><td>a b → 1 or 0</td><td>Greater than</td></tr>
+  <tr><td><code>LTE</code> <code>&lt;=</code></td><td>a b → 1 or 0</td><td>Less than or equal</td></tr>
+  <tr><td><code>GTE</code> <code>&gt;=</code></td><td>a b → 1 or 0</td><td>Greater than or equal</td></tr>
+</table>
+
+<h3>Stack Manipulation</h3>
+<table>
+  <tr><th>Token</th><th>Stack effect</th><th>Description</th></tr>
+  <tr><td><code>DUP</code></td><td>a → a a</td><td>Duplicate top</td></tr>
+  <tr><td><code>POP</code> <code>DROP</code></td><td>a →</td><td>Discard top</td></tr>
+  <tr><td><code>SWAP</code></td><td>a b → b a</td><td>Swap top two</td></tr>
+  <tr><td><code>OVER</code></td><td>a b → a b a</td><td>Copy second-to-top over top</td></tr>
+  <tr><td><code>ROT</code></td><td>a b c → b c a</td><td>Rotate top three: bring third to top</td></tr>
+</table>
+
+<h3>Variables</h3>
+<p>There are 100 numbered variable slots (1–100). Use <code>#DEFINE</code> to create named aliases.</p>
+<pre>
+<span class="kw">#DEFINE</span> speed <span class="num">1</span>       <span class="cmt">; name slot 1 "speed"</span>
+<span class="num">42</span> <span class="kw">STORE</span> speed         <span class="cmt">; store 42 into slot 1</span>
+<span class="kw">RECALL</span> speed           <span class="cmt">; push slot 1's value (42)</span>
+</pre>
+
+<!-- §4 Registers -->
+<h2 id="registers"><a class="section-anchor" href="#registers">§4 Registers</a></h2>
+
+<p>Registers are named I/O ports. <strong>Read-only</strong> sensors push their value onto the stack when you name them. <strong>Write-only</strong> actuators pop a value from the stack and apply it.</p>
+
+<h3>Read-Only Sensors</h3>
+<table>
+  <tr><th>Name</th><th>Alias</th><th>Range</th><th>Description</th></tr>
+  <tr><td><code>ENERGY</code></td><td></td><td>0–maxEnergy</td><td>Current energy pool</td></tr>
+  <tr><td><code>ARMOR</code></td><td></td><td>0–maxArmor</td><td>Current hit points</td></tr>
+  <tr><td><code>HEAT</code></td><td></td><td>0–20</td><td>Weapon heat level (cannot fire when ≥20)</td></tr>
+  <tr><td><code>RANGE</code></td><td></td><td>0–1500</td><td>Distance to nearest enemy in SCAN cone; 0 = none detected</td></tr>
+  <tr><td><code>RADAR</code></td><td></td><td>0–359°</td><td>Bearing to nearest detected enemy</td></tr>
+  <tr><td><code>SPEEDX</code></td><td></td><td>−maxSpeed–maxSpeed</td><td>Horizontal velocity</td></tr>
+  <tr><td><code>SPEEDY</code></td><td></td><td>−maxSpeed–maxSpeed</td><td>Vertical velocity</td></tr>
+  <tr><td><code>POSX</code></td><td><code>X</code></td><td>0–arenaW</td><td>X position (distance from left edge)</td></tr>
+  <tr><td><code>POSY</code></td><td><code>Y</code></td><td>0–arenaH</td><td>Y position (distance from top edge)</td></tr>
+  <tr><td><code>COLLISION</code></td><td></td><td>0 or 1</td><td>1 if robot collided with wall or another robot last tick</td></tr>
+  <tr><td><code>STUNNED</code></td><td></td><td>0 or 1</td><td>1 if robot is currently stunned</td></tr>
+  <tr><td><code>TEAMMATES</code></td><td><code>ROBOTS</code></td><td>1–n</td><td>Total robots currently alive (including self)</td></tr>
+  <tr><td><code>RANDOM</code></td><td></td><td>0–255</td><td>Random integer, re-rolled each tick</td></tr>
+  <tr><td><code>TIME</code></td><td><code>CHRONON</code></td><td>0–tickLimit</td><td>Current tick counter</td></tr>
+  <tr><td><code>DAMAGE</code> <span class="badge new">v0.5</span></td><td></td><td>0–∞</td><td>Cumulative damage received since battle start</td></tr>
+  <tr><td><code>DOPPLER</code> <span class="badge new">v0.5</span></td><td></td><td>integer</td><td>Radial velocity of nearest enemy in AIM+LOOK direction; positive = approaching</td></tr>
+  <tr><td><code>TOP</code> <span class="badge new">v0.5</span></td><td></td><td>0–arenaH</td><td>Distance to top wall (= POSY)</td></tr>
+  <tr><td><code>BOT</code> <span class="badge new">v0.5</span></td><td></td><td>0–arenaH</td><td>Distance to bottom wall</td></tr>
+  <tr><td><code>LEFT</code> <span class="badge new">v0.5</span></td><td></td><td>0–arenaW</td><td>Distance to left wall (= POSX)</td></tr>
+  <tr><td><code>RIGHT</code> <span class="badge new">v0.5</span></td><td></td><td>0–arenaW</td><td>Distance to right wall</td></tr>
+  <tr><td><code>ID</code> <span class="badge new">v0.5</span></td><td></td><td>0–n-1</td><td>This robot's 0-based index in the battle</td></tr>
+</table>
+
+<h3>Write-Only Actuators</h3>
+<table>
+  <tr><th>Name</th><th>Value</th><th>Description</th></tr>
+  <tr><td><code>AIM</code></td><td>0–359°</td><td>Set gun aim angle in degrees (0=right, 90=down, 180=left, 270=up)</td></tr>
+  <tr><td><code>FIRE</code></td><td>1 to fire</td><td>Fire weapon in current aim direction (ignored if heat ≥ 20 or no weapon)</td></tr>
+  <tr><td><code>SHIELD</code></td><td>0 or 1</td><td>Enable/disable shield (requires shield hardware)</td></tr>
+  <tr><td><code>THRUSTX</code></td><td>−5 to 5</td><td>Horizontal thrust force (clamped)</td></tr>
+  <tr><td><code>THRUSTY</code></td><td>−5 to 5</td><td>Vertical thrust force (clamped)</td></tr>
+  <tr><td><code>BRAKE</code></td><td>0 or 1</td><td>When 1, multiply velocity by 0.80 each tick instead of thrusting</td></tr>
+  <tr><td><code>GUNX</code></td><td>integer</td><td>Set aim by X component of direction vector (used with GUNY)</td></tr>
+  <tr><td><code>GUNY</code></td><td>integer</td><td>Set aim by Y component of direction vector (used with GUNX)</td></tr>
+  <tr><td><code>BEEP</code></td><td>any non-zero</td><td>Queue SIGNAL interrupt on all alive teammates</td></tr>
+  <tr><td><code>LOOK</code> <span class="badge new">v0.5</span></td><td>0–359°</td><td>Offset DOPPLER scan direction from AIM by this many degrees</td></tr>
+  <tr><td><code>SCAN</code> <span class="badge new">v0.5</span></td><td>0–359°</td><td>Offset RADAR/RANGE scan direction from AIM by this many degrees</td></tr>
+</table>
+
+<div class="note">
+  <strong>Note:</strong> LOOK and SCAN persist across ticks. Set once in your init block and they stay set.
+</div>
+
+<!-- §5 Math -->
+<h2 id="math"><a class="section-anchor" href="#math">§5 Math &amp; Trig</a> <span class="badge new">v0.5</span></h2>
+
+<p>All trig functions operate in <strong>degrees</strong> and return values scaled by <strong>×1000</strong>. This avoids floating-point: <code>SIN 90</code> returns <code>1000</code> (representing 1.0).</p>
+
+<table>
+  <tr><th>Opcode</th><th>Stack effect</th><th>Description</th></tr>
+  <tr><td><code>SQRT</code></td><td>a → floor(√a)</td><td>Integer square root; negative input → 0</td></tr>
+  <tr><td><code>DIST</code></td><td>dx dy → floor(hypot)</td><td>Euclidean distance from two components</td></tr>
+  <tr><td><code>SIN</code></td><td>deg → sin×1000</td><td>Sine of angle in degrees, ×1000</td></tr>
+  <tr><td><code>COS</code></td><td>deg → cos×1000</td><td>Cosine of angle in degrees, ×1000</td></tr>
+  <tr><td><code>TAN</code></td><td>deg → tan×1000</td><td>Tangent; returns 0 at ±90° (undefined)</td></tr>
+  <tr><td><code>ARCTAN</code></td><td>y x → deg</td><td>atan2(y,x) in degrees, 0–359 range (note: x on top, y below)</td></tr>
+  <tr><td><code>ARCSIN</code></td><td>val×1000 → deg</td><td>Arcsine; input clamped to ±1000</td></tr>
+  <tr><td><code>ARCCOS</code></td><td>val×1000 → deg</td><td>Arccosine; input clamped to ±1000</td></tr>
+</table>
+
+<pre>
+<span class="cmt">; Compute lead angle for a target 150 units away moving at 3 px/tick sideways</span>
+<span class="num">3000</span> <span class="num">150</span> <span class="kw">DIV</span>   <span class="cmt">; sin(angle) × 1000 = 3000/150 = 20</span>
+<span class="kw">ARCSIN</span>          <span class="cmt">; ≈ 1° (lead angle)</span>
+</pre>
+
+<!-- §6 Control Flow -->
+<h2 id="control"><a class="section-anchor" href="#control">§6 Control Flow</a></h2>
+
+<h3>IF / ELSE / ENDIF</h3>
+<p>Pops the top value. If it is <strong>non-zero</strong> (true), executes the IF block; otherwise jumps to the ELSE block (or ENDIF if no ELSE).</p>
+<pre>
+<span class="reg">ENERGY</span> <span class="num">50</span> <span class="kw">&gt;</span>
+<span class="kw">IF</span>
+  <span class="num">1</span> <span class="reg">SHIELD</span>
+<span class="kw">ELSE</span>
+  <span class="num">0</span> <span class="reg">SHIELD</span>
+<span class="kw">ENDIF</span>
+</pre>
+
+<h3>LOOP / POOL</h3>
+<p>Loops unconditionally back to the matching <code>LOOP</code>. Programs that reach the end of bytecode also wrap around to the start — a bare <code>LOOP … POOL</code> is the most common program structure.</p>
+<pre>
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="reg">AIM</span>
+  <span class="num">1</span> <span class="reg">FIRE</span>
+<span class="kw">POOL</span>
+</pre>
+
+<h3>Labels and GOTO</h3>
+<p>A word ending in <code>:</code> defines a label at that bytecode address. <code>GOTO label</code> jumps unconditionally. <code>CALL label</code> saves the return address; <code>RETURN</code> pops it.</p>
+<pre>
+<span class="lbl">init:</span>
+  <span class="kw">SETINT</span> <span class="int">WALL</span> <span class="lbl">avoidWall</span>
+  <span class="kw">INTON</span>
+  <span class="kw">GOTO</span> <span class="lbl">main</span>
+
+<span class="lbl">avoidWall:</span>
+  <span class="num">5</span> <span class="reg">BRAKE</span>
+  <span class="kw">RTI</span>
+
+<span class="lbl">main:</span>
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="reg">AIM</span>
+  <span class="num">1</span> <span class="reg">FIRE</span>
+<span class="kw">POOL</span>
+</pre>
+
+<h3>#DEFINE</h3>
+<p>Preprocessor macro — expands a name to a value (or another name) before compilation. Useful for naming variable slots and constants.</p>
+<pre>
+<span class="kw">#DEFINE</span> HEALTH_THRESHOLD <span class="num">30</span>
+<span class="kw">#DEFINE</span> bearing <span class="num">1</span>
+
+<span class="reg">ENERGY</span> HEALTH_THRESHOLD <span class="kw">&lt;</span>
+<span class="kw">IF</span>
+  <span class="num">0</span> <span class="reg">SHIELD</span>   <span class="cmt">; conserve energy</span>
+<span class="kw">ENDIF</span>
+</pre>
+
+<!-- §7 Interrupts -->
+<h2 id="interrupts"><a class="section-anchor" href="#interrupts">§7 Interrupt System</a> <span class="badge new">v0.5</span></h2>
+
+<p>Interrupts let your robot react to events without polling. When a condition fires, the current instruction pointer is saved, interrupts are disabled, and execution jumps to your handler. Call <code>RTI</code> at the end to re-enable interrupts and resume normal execution.</p>
+
+<h3>Interrupt Opcodes</h3>
+<table>
+  <tr><th>Opcode</th><th>Syntax</th><th>Description</th></tr>
+  <tr><td><code>SETINT</code></td><td><code>SETINT type label</code></td><td>Register <em>label</em> as the handler for interrupt <em>type</em>. Use <code>0</code> as label to disable.</td></tr>
+  <tr><td><code>SETPARAM</code></td><td><code>SETPARAM type value</code></td><td>Set the threshold parameter for interrupt <em>type</em>.</td></tr>
+  <tr><td><code>INTON</code></td><td></td><td>Enable interrupt delivery globally.</td></tr>
+  <tr><td><code>INTOFF</code></td><td></td><td>Disable interrupt delivery (they still queue).</td></tr>
+  <tr><td><code>RTI</code></td><td></td><td>Return from interrupt: re-enable interrupts and restore the saved PC.</td></tr>
+  <tr><td><code>FLUSHINT</code></td><td></td><td>Clear all pending queued interrupts.</td></tr>
+</table>
+
+<h3>Interrupt Types and Default Parameters</h3>
+<table>
+  <tr><th>Name</th><th>Default param</th><th>Fires when…</th></tr>
+  <tr><td><code>COLLISION</code></td><td>—</td><td>Robot collided with wall or another robot this tick</td></tr>
+  <tr><td><code>WALL</code></td><td>30 px</td><td>Distance to any wall ≤ param</td></tr>
+  <tr><td><code>DAMAGE</code></td><td>1 pt</td><td>Damage received this tick ≥ param</td></tr>
+  <tr><td><code>SHIELD</code></td><td>10 energy</td><td>Energy ≤ param while shield is active</td></tr>
+  <tr><td><code>TOP</code></td><td>20 px</td><td>Distance to top wall ≤ param</td></tr>
+  <tr><td><code>BOTTOM</code></td><td>arenaH−20</td><td>Distance to bottom wall ≤ param</td></tr>
+  <tr><td><code>LEFT</code></td><td>20 px</td><td>Distance to left wall ≤ param</td></tr>
+  <tr><td><code>RIGHT</code></td><td>arenaW−20</td><td>Distance to right wall ≤ param</td></tr>
+  <tr><td><code>RADAR</code></td><td>2×arenaW</td><td>Nearest detected enemy ≤ param units away</td></tr>
+  <tr><td><code>RANGE</code></td><td>2×arenaW</td><td>Nearest enemy in SCAN direction ≤ param</td></tr>
+  <tr><td><code>ROBOTS</code></td><td>6</td><td>Total robots alive &lt; param (use SETPARAM to tune!)</td></tr>
+  <tr><td><code>SIGNAL</code></td><td>—</td><td>A teammate wrote a non-zero value to BEEP</td></tr>
+  <tr><td><code>CHRONON</code></td><td>0 (off)</td><td>Current tick mod param = 0 (e.g., every 10 ticks)</td></tr>
+</table>
+
+<div class="warn">
+  <strong>Warning:</strong> The default ROBOTS param is 6. In a 2-robot battle ROBOTS (=2) will immediately be less than 6, so this interrupt fires every tick unless you <code>SETPARAM ROBOTS 1</code> or don't register a handler.
+</div>
+
+<p>Interrupts are <strong>priority-ordered</strong>: lower-numbered types are dispatched first. Only one interrupt fires per tick. Re-queued interrupts from the same condition can fire again next tick if still active.</p>
+
+<pre>
+<span class="cmt">; Register all interrupts in an init block</span>
+<span class="kw">SETINT</span> <span class="int">WALL</span>     <span class="lbl">onWall</span>
+<span class="kw">SETPARAM</span> <span class="int">WALL</span>  <span class="num">60</span>
+<span class="kw">SETINT</span> <span class="int">DAMAGE</span>  <span class="lbl">onDamage</span>
+<span class="kw">SETPARAM</span> <span class="int">DAMAGE</span> <span class="num">5</span>
+<span class="kw">SETINT</span> <span class="int">CHRONON</span> <span class="lbl">every10</span>
+<span class="kw">SETPARAM</span> <span class="int">CHRONON</span> <span class="num">10</span>
+<span class="kw">INTON</span>
+<span class="kw">GOTO</span> <span class="lbl">main</span>
+
+<span class="lbl">onWall:</span>
+  <span class="num">1</span> <span class="reg">BRAKE</span>
+  <span class="kw">RTI</span>
+
+<span class="lbl">onDamage:</span>
+  <span class="num">1</span> <span class="reg">SHIELD</span>
+  <span class="kw">RTI</span>
+
+<span class="lbl">every10:</span>
+  <span class="cmt">; do something every 10 ticks</span>
+  <span class="kw">RTI</span>
+
+<span class="lbl">main:</span>
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="reg">AIM</span>
+  <span class="num">1</span> <span class="reg">FIRE</span>
+<span class="kw">POOL</span>
+</pre>
+
+<!-- §8 Examples -->
+<h2 id="examples"><a class="section-anchor" href="#examples">§8 Example Programs</a></h2>
+
+<h3>Simple Duelist</h3>
+<pre>
+<span class="cmt">; Track enemy, fire, and manage shield based on energy.</span>
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="reg">AIM</span>
+  <span class="num">1</span> <span class="reg">FIRE</span>
+  <span class="reg">ENERGY</span> <span class="num">40</span> <span class="kw">&gt;</span>
+  <span class="kw">IF</span>
+    <span class="num">1</span> <span class="reg">SHIELD</span>
+  <span class="kw">ELSE</span>
+    <span class="num">0</span> <span class="reg">SHIELD</span>
+  <span class="kw">ENDIF</span>
+<span class="kw">POOL</span>
+</pre>
+
+<h3>Doppler Lead-Shot Duelist</h3>
+<pre>
+<span class="cmt">; Read DOPPLER to estimate lateral velocity and lead the shot.</span>
+<span class="kw">#DEFINE</span> bearing <span class="num">1</span>
+<span class="kw">#DEFINE</span> lead <span class="num">2</span>
+
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="kw">STORE</span> bearing
+  <span class="kw">RECALL</span> bearing <span class="reg">AIM</span>
+  <span class="reg">DOPPLER</span> <span class="num">4</span> <span class="kw">/</span> <span class="kw">STORE</span> lead
+  <span class="kw">RECALL</span> bearing <span class="kw">RECALL</span> lead <span class="kw">+</span> <span class="reg">AIM</span>
+  <span class="reg">RANGE</span> <span class="num">0</span> <span class="kw">&gt;</span>
+  <span class="kw">IF</span>
+    <span class="num">1</span> <span class="reg">FIRE</span>
+  <span class="kw">ENDIF</span>
+<span class="kw">POOL</span>
+</pre>
+
+<h3>Wall-Avoiding Interrupt Robot</h3>
+<pre>
+<span class="cmt">; WALL interrupt fires when within 50 px; steer away from nearest wall.</span>
+<span class="kw">SETINT</span> <span class="int">WALL</span> <span class="lbl">wallHandler</span>
+<span class="kw">SETPARAM</span> <span class="int">WALL</span> <span class="num">50</span>
+<span class="kw">INTON</span>
+
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="reg">AIM</span>
+  <span class="num">1</span> <span class="reg">FIRE</span>
+<span class="kw">POOL</span>
+
+<span class="lbl">wallHandler:</span>
+  <span class="reg">LEFT</span> <span class="num">50</span> <span class="kw">&lt;</span>
+  <span class="kw">IF</span>
+    <span class="num">3</span> <span class="reg">THRUSTX</span>
+  <span class="kw">ELSE</span>
+    <span class="reg">RIGHT</span> <span class="num">50</span> <span class="kw">&lt;</span>
+    <span class="kw">IF</span>
+      <span class="num">-3</span> <span class="reg">THRUSTX</span>
+    <span class="kw">ENDIF</span>
+  <span class="kw">ENDIF</span>
+  <span class="reg">TOP</span> <span class="num">50</span> <span class="kw">&lt;</span>
+  <span class="kw">IF</span>
+    <span class="num">3</span> <span class="reg">THRUSTY</span>
+  <span class="kw">ELSE</span>
+    <span class="reg">BOT</span> <span class="num">50</span> <span class="kw">&lt;</span>
+    <span class="kw">IF</span>
+      <span class="num">-3</span> <span class="reg">THRUSTY</span>
+    <span class="kw">ENDIF</span>
+  <span class="kw">ENDIF</span>
+  <span class="kw">RTI</span>
+</pre>
+
+<h3>Reactive Shield Bot</h3>
+<pre>
+<span class="cmt">; Raise shield when hit by ≥3 damage; lower when energy drops below 15.</span>
+<span class="kw">SETINT</span> <span class="int">DAMAGE</span> <span class="lbl">damageHandler</span>
+<span class="kw">SETPARAM</span> <span class="int">DAMAGE</span> <span class="num">3</span>
+<span class="kw">INTON</span>
+
+<span class="kw">LOOP</span>
+  <span class="reg">RADAR</span> <span class="reg">AIM</span>
+  <span class="num">1</span> <span class="reg">FIRE</span>
+  <span class="reg">ENERGY</span> <span class="num">15</span> <span class="kw">&lt;</span>
+  <span class="kw">IF</span>
+    <span class="num">0</span> <span class="reg">SHIELD</span>
+  <span class="kw">ENDIF</span>
+<span class="kw">POOL</span>
+
+<span class="lbl">damageHandler:</span>
+  <span class="num">1</span> <span class="reg">SHIELD</span>
+  <span class="kw">RTI</span>
+</pre>
+
+<!-- §9 Strategy Tips -->
+<h2 id="tips"><a class="section-anchor" href="#tips">§9 Strategy Tips</a></h2>
+
+<h3>Combat</h3>
+<ul style="margin: 8px 0 8px 20px; color: var(--text);">
+  <li style="margin: 4px 0"><strong>Fire only when RANGE &gt; 0</strong> — don't waste heat firing when no enemy is detected.</li>
+  <li style="margin: 4px 0"><strong>Use DOPPLER to lead shots</strong> — positive DOPPLER means enemy is approaching; subtract a small fraction from the aim angle to lead.</li>
+  <li style="margin: 4px 0"><strong>SCAN offset</strong> — decouple your radar scan cone from your aim. Useful for scanning a wider arc while aiming at the last known position.</li>
+  <li style="margin: 4px 0"><strong>Shield timing</strong> — shield is expensive. Use <code>SETINT DAMAGE</code> to raise it reactively rather than keeping it on continuously.</li>
+  <li style="margin: 4px 0"><strong>Missile heat</strong> — missiles generate 3 heat each. With low cooling, you'll jam after 6 shots. Cool down or pair missiles with high-cooling hardware.</li>
+</ul>
+
+<h3>Movement</h3>
+<ul style="margin: 8px 0 8px 20px; color: var(--text);">
+  <li style="margin: 4px 0"><strong>BRAKE</strong> is fast deceleration (×0.80/tick). Use it before walls rather than fighting velocity with opposing thrust.</li>
+  <li style="margin: 4px 0"><strong>Wall sensors</strong> (TOP/BOT/LEFT/RIGHT) give exact distances. A WALL interrupt with SETPARAM 60 gives you time to steer before hitting the border.</li>
+  <li style="margin: 4px 0"><strong>COLLISION</strong> is reactive (fires after the bounce). Wall sensors are proactive — prefer them for smooth navigation.</li>
+</ul>
+
+<h3>Interrupts</h3>
+<ul style="margin: 8px 0 8px 20px; color: var(--text);">
+  <li style="margin: 4px 0">Set up interrupts in an init block before your main LOOP. Use <code>GOTO main</code> to skip past handler code.</li>
+  <li style="margin: 4px 0">Always end handlers with <code>RTI</code>. Forgetting RTI leaves interrupts disabled permanently.</li>
+  <li style="margin: 4px 0">Handlers run with interrupts disabled. Re-entrant interrupts do not fire inside a handler — they queue and fire after RTI.</li>
+  <li style="margin: 4px 0"><code>FLUSHINT</code> clears the queue. Useful in a handler to prevent stale events from firing immediately after RTI.</li>
+  <li style="margin: 4px 0"><strong>ROBOTS default param is 6</strong> — use <code>SETPARAM ROBOTS 1</code> to fire only when you are the last robot alive, or tune to your tournament size.</li>
+</ul>
+
+<h3>CPU Budget</h3>
+<ul style="margin: 8px 0 8px 20px; color: var(--text);">
+  <li style="margin: 4px 0">CPU level 1 (10 cycles/tick) is enough for simple programs. Level 2 (20 cycles) handles interrupt-heavy code. Level 3 (40 cycles) enables complex trig and multi-pass logic.</li>
+  <li style="margin: 4px 0">Count your cycles: each bytecode word is one cycle. SETINT/SETPARAM use 3 words each. Register reads/writes use 2 words. The program wraps at the end.</li>
+  <li style="margin: 4px 0">If your LOOP body needs more cycles than your CPU has per tick, the VM will resume mid-loop next tick — design accordingly.</li>
+</ul>
+
+<hr style="border: none; border-top: 1px solid var(--border); margin: 40px 0 24px;">
+
+<p style="color: var(--text-dim); font-size: 12px;">
+  RoboWar web edition — vibe coded May 2026 by Michael Morrow using <a href="https://claude.ai/code">Claude Code</a>.<br>
+  Original <em>RoboWar</em> by Rod McFarland (1989–1994). Additional development by Peter Spear and the RoboWar community.
+</p>
+
+</div>
+</body>
+</html>

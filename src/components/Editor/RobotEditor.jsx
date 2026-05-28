@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getRobotById, saveRobot, newRobotId } from '../../storage.js';
 import { DEFAULT_HARDWARE, calcHardwareCost, HARDWARE_BUDGET } from '../../engine/hardware.js';
 import { compile } from '../../engine/compiler.js';
@@ -13,10 +13,46 @@ LOOP
 POOL
 `;
 
+function parseRwFile(text) {
+  const lines = text.split('\n');
+  let name = 'Imported Robot';
+  let hardware = { ...DEFAULT_HARDWARE };
+  let programLines = [];
+  let inProgram = false;
+
+  for (const line of lines) {
+    if (line.startsWith('#NAME ')) {
+      name = line.slice(6).trim();
+    } else if (line.startsWith('#HARDWARE ')) {
+      const parts = line.slice(10).trim().split(/\s+/);
+      for (const part of parts) {
+        const [k, v] = part.split('=');
+        if (k && v !== undefined) {
+          hardware[k] = isNaN(v) ? v : parseInt(v, 10);
+        }
+      }
+    } else if (line.startsWith('#PROGRAM')) {
+      inProgram = true;
+    } else if (line.startsWith('#END')) {
+      inProgram = false;
+    } else if (inProgram) {
+      programLines.push(line);
+    }
+  }
+
+  // Strip trailing blank lines from program
+  while (programLines.length && programLines[programLines.length - 1].trim() === '') {
+    programLines.pop();
+  }
+
+  return { name, hardware, program: programLines.join('\n') };
+}
+
 export default function RobotEditor({ robotId, navigate }) {
   const [robot, setRobot] = useState(null);
   const [errors, setErrors] = useState([]);
   const [saved, setSaved] = useState(false);
+  const importRef = useRef(null);
 
   useEffect(() => {
     if (robotId) {
@@ -60,6 +96,22 @@ export default function RobotEditor({ robotId, navigate }) {
     navigate('battle-setup', { preselected: [robot.id] });
   }
 
+  function handleImportClick() {
+    importRef.current?.click();
+  }
+
+  function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const parsed = parseRwFile(ev.target.result);
+      update({ name: parsed.name, hardware: parsed.hardware, program: parsed.program });
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // allow re-import of same file
+  }
+
   function handleExport() {
     if (!robot) return;
     const content = [
@@ -92,6 +144,14 @@ export default function RobotEditor({ robotId, navigate }) {
           style={{ maxWidth: 300 }}
         />
         <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".rw"
+            style={{ display: 'none' }}
+            onChange={handleImportFile}
+          />
+          <button className="btn" onClick={handleImportClick}>Import .rw</button>
           <button className="btn" onClick={handleExport}>Export .rw</button>
           <button
             className="btn"
