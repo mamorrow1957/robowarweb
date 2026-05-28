@@ -151,7 +151,7 @@ These registers can be both read (push current value) and written (update the st
 | `THRUSTX` | −5–5 | Apply X thrust (clamped; multiplied by engine accel × 0.5 per tick) |
 | `THRUSTY` | −5–5 | Apply Y thrust |
 | `BRAKE` | 0/1 | Apply braking force (velocity × 0.80 per tick when active) |
-| `BEEP` | 0–15 | Play tone (cosmetic only; no effect on simulation) |
+| `BEEP` | 0–15 | Play tone; writing any non-zero value also queues a SIGNAL interrupt on all alive teammates |
 
 ### 3.3 Instruction Set
 
@@ -627,7 +627,7 @@ Each tick, the radar scans a cone of `radarCone` degrees centered on the robot's
 Displayed on first load before the main navigation. Full-screen dark background with floating particles.
 
 - **⚔ Enter the Arena** — dismisses the splash and shows the main app (My Robots)
-- **📖 Programmer's Guide** — downloads `RoboWar-Programmer-Guide.pdf` (served from `public/`)
+- **📖 Programmer's Guide** — opens `programmer-guide.html` in a new tab (served from `public/`)
 - Hint text directs new players to read the guide before entering
 - **Credits footer** (below a divider):
   - Original *RoboWar* created by **Rod McFarland** (1989–1994); additional development by **Peter Spear** and the RoboWar community
@@ -637,11 +637,11 @@ Displayed on first load before the main navigation. Full-screen dark background 
 
 ```
 Nav bar
-├── My Robots          — list, create, edit, delete, export
+├── My Robots          — list, create, edit, delete, import/export
 ├── Battle             — robot selection + arena config → battle viewer
 ├── Tournament         — round-robin bracket (local, no backend)
-├── Leaderboard        — ELO rankings (localStorage)
-└── [📖 Docs]          — far-right; downloads RoboWar-Programmer-Guide.pdf
+├── Leaderboard        — ELO + W/L/D rankings (localStorage)
+└── [📖 Docs]          — far-right; opens programmer-guide.html in new tab
 ```
 
 ### 6.3 Robot Editor
@@ -669,10 +669,11 @@ Split into two panels:
 
 **Editor features (implemented):**
 
-- Syntax highlighting for opcodes, registers, labels, numbers, comments, directives
+- Syntax highlighting for opcodes, registers, labels, numbers, comments, directives, interrupt type names
+- Opcode/register autocomplete via Ctrl+Space (powered by `@codemirror/autocomplete`)
 - Inline error panel below editor listing all compiler errors
 - `#DEFINE` macro support
-- Import/export as plain-text `.rw` file (export only in v1)
+- Import and export as plain-text `.rw` file (Import .rw button, Export .rw button)
 - Live HP budget counter with colour-coded bar (green → yellow → red)
 - Save blocked when over budget or compile errors present
 
@@ -689,6 +690,8 @@ Split into two panels:
 ┌─────────────────────────────────────────────────────────────┐
 │  [Arena Canvas — scaled to 600×600 px display]              │
 │  Robots: coloured circles + aim line + name + HP/energy bar │
+│  SCAN direction: dashed cyan line (when offset from aim)     │
+│  LOOK direction: dashed purple line (when offset from aim)   │
 │  Shield: outer glow ring                                     │
 │  Projectiles: white (bullet), orange (missile), blue (drone)│
 │  Destroyed robots: faded with × mark                        │
@@ -770,10 +773,10 @@ The viewer's standard controls (pause, step, speed, mute) remain fully functiona
 
 ### 6.7 Leaderboard
 
-- Displays all saved robots sorted by ELO rating (default 1200)
-- **Run Rated Matches** button simulates every pairwise match and updates ELO (K=32)
-- Ratings persist in `localStorage` under key `robowar_elo`
-- Columns: rank, robot name, weapon type, HP cost, ELO
+- Displays all saved robots sorted by ELO rating (default 1200), with win-margin (W−L) as a tiebreaker
+- **Run Rated Matches** button simulates every pairwise match and updates ELO (K=32) and W/L/D records
+- ELO persists in `localStorage` under key `robowar_elo`; W/L/D persists under key `robowar_wld`
+- Columns: rank, robot name, weapon type, HP cost, W, L, D, ELO
 
 ---
 
@@ -807,7 +810,7 @@ GET    /api/users/:id/robots   — list a user's public robots
 
 ### 7.3 Robot Sharing
 
-**v1:** Export as `.rw` text file (download). Import from `.rw` file is planned but not yet implemented.
+**v1:** Export and import as `.rw` plain-text files. Both operations are available from the Robot Editor toolbar and from the My Robots list.
 
 **v2:** Share link — `robowar.example.com/robots/:id` — view-only page with read-only editor and battle button.
 
@@ -947,9 +950,9 @@ tests/
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
 | `editor.spec.js` | 22 | Hardware panel, code editor, save/compile, error display |
-| `engine/compiler.spec.js` | 64 | All opcodes, labels, #DEFINE macros, error cases |
-| `engine/vm.spec.js` | 59 | Stack operations, arithmetic, control flow, registers |
-| `engine/combat.spec.js` | 23 | Spawn, physics, projectiles, damage, shield, win conditions |
+| `engine/compiler.spec.js` | 98 | All opcodes, labels, #DEFINE macros, error cases, v0.5 instructions |
+| `engine/vm.spec.js` | 107 | Stack operations, arithmetic, control flow, registers, trig, interrupts |
+| `engine/combat.spec.js` | 37 | Spawn, physics, projectiles, damage, shield, wall sensors, interrupts |
 | `leaderboard.spec.js` | 16 | ELO display, rated matches, column layout |
 | `tournament.spec.js` | 26 | Robot selection, round-robin, standings, mode toggle, watch mode flow |
 | `robots.spec.js` | 12 | Robot list CRUD, color dot, editor navigation |
@@ -964,7 +967,7 @@ tests/
 | `navTo(page, label)` | Click a nav button by label text |
 | `getRobotNames(page)` | Return text content of all `.robot-name` elements |
 | `makeRobot(overrides)` | Return a minimal valid robot definition object |
-| `SAMPLE_NAMES` | `['Tracker', 'Evader', 'Sniper']` — the three built-in sample robots |
+| `SAMPLE_NAMES` | `['Tracker', 'Evader', 'Sniper', 'WallAvoider', 'DopplerDuelist', 'ReactiveShield']` — the six built-in sample robots |
 | `DEFAULT_SENSORS` | Default sensor object used in VM unit tests |
 
 ### 9.5 Key Conventions
@@ -987,5 +990,5 @@ tests/
 | 5 | ELO K-factor and initial rating? | **Resolved** | K=32, 1200 start; stored in localStorage |
 | 6 | Tick rate for real-time spectating? | **Deferred** | Not applicable until v2 backend is implemented |
 | 7 | Maximum program length? | **Open** | No hard limit in v1; stack capped at 256 entries; bytecode length unconstrained |
-| 8 | `.rw` file import in editor? | **Open** | Export implemented; import UI not yet built |
+| 8 | `.rw` file import in editor? | **Resolved** | Import and export both implemented in v1.1 |
 | 9 | Tournament formats beyond round robin? | **Open** | Single and double elimination deferred to v2 |
