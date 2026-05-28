@@ -91,6 +91,38 @@ export default function ArenaCanvas({ frame, arenaWidth = 300, arenaHeight = 300
         ctx.stroke();
       }
 
+      // SCAN direction indicator (cyan) — shown only when offset from aim
+      if (r.scanAngle !== undefined) {
+        const scanDiff = ((r.scanAngle - r.aimAngle) % 360 + 360) % 360;
+        if (scanDiff > 0.5 && scanDiff < 359.5) {
+          const scanRad = r.scanAngle * Math.PI / 180;
+          ctx.strokeStyle = '#00d0ff70';
+          ctx.lineWidth = 1 * scale;
+          ctx.setLineDash([3 * scale, 2 * scale]);
+          ctx.beginPath();
+          ctx.moveTo(rx, ry);
+          ctx.lineTo(rx + Math.cos(scanRad) * R * 3, ry + Math.sin(scanRad) * R * 3);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      // LOOK direction indicator (purple) — shown only when offset from aim
+      if (r.lookAngle !== undefined) {
+        const lookDiff = ((r.lookAngle - r.aimAngle) % 360 + 360) % 360;
+        if (lookDiff > 0.5 && lookDiff < 359.5) {
+          const lookRad = r.lookAngle * Math.PI / 180;
+          ctx.strokeStyle = '#a78bfa70';
+          ctx.lineWidth = 1 * scale;
+          ctx.setLineDash([2 * scale, 3 * scale]);
+          ctx.beginPath();
+          ctx.moveTo(rx, ry);
+          ctx.lineTo(rx + Math.cos(lookRad) * R * 3, ry + Math.sin(lookRad) * R * 3);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
       // Aim indicator
       const aimRad = r.aimAngle * Math.PI / 180;
       ctx.strokeStyle = r.color + 'a0';

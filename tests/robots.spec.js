@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
   await resetApp(page);
 });
 
-test('shows three sample robots on first load', async ({ page }) => {
+test('shows all sample robots on first load', async ({ page }) => {
   const names = await getRobotNames(page);
   expect(names).toEqual(SAMPLE_NAMES);
 });

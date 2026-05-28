@@ -112,12 +112,12 @@ test('match results table has correct columns', async ({ page }) => {
   expect(headers.some(h => h.includes('Winner'))).toBe(true);
 });
 
-test('match results count is correct for round-robin of 3', async ({ page }) => {
+test('match results count is correct for round-robin of all sample robots', async ({ page }) => {
   await runTournament(page);
-  // 3 robots → C(3,2) = 3 matches
+  // 6 robots → C(6,2) = 15 matches
   const tables = page.locator('.lb-table');
   const rows = tables.nth(1).locator('tbody tr');
-  await expect(rows).toHaveCount(3);
+  await expect(rows).toHaveCount(15);
 });
 
 test('tournament with 2 robots produces 1 match result', async ({ page }) => {

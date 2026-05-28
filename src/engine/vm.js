@@ -37,6 +37,7 @@ export function createVM(bytecode) {
     // v0.5 persistent state registers
     look: 0,    // LOOK offset applied to DOPPLER scan direction
     scan: 0,    // SCAN offset applied to RADAR/RANGE scan direction
+    beep: 0,    // BEEP output (triggers SIGNAL interrupt on teammates)
     // v0.5 interrupt system
     intHandlers: new Array(13).fill(-1),         // handler PC per interrupt type (-1 = disabled)
     intParams:   [...DEFAULT_INT_PARAMS],         // threshold per interrupt type
@@ -55,6 +56,7 @@ function resetActuators(vm) {
   vm.aim = null;
   vm.gunX = null;
   vm.gunY = null;
+  vm.beep = 0;
 }
 
 export function setSensors(vm, sensors) {
@@ -275,6 +277,6 @@ function handleWrite(vm, regIdx, val) {
     case REG.AIM:     vm.aim = val; break;
     case REG.LOOK:    vm.look = ((val % 360) + 360) % 360; break;
     case REG.SCAN:    vm.scan = ((val % 360) + 360) % 360; break;
-    case REG.BEEP:    break; // cosmetic — no simulation effect
+    case REG.BEEP:    vm.beep = val; break;  // SIGNAL interrupt to teammates
   }
 }

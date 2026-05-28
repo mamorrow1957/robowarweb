@@ -59,8 +59,11 @@ export function makeRobot(overrides = {}) {
   };
 }
 
-/** The three built-in sample robot names (loaded on first visit). */
-export const SAMPLE_NAMES = ['Tracker', 'Evader', 'Sniper'];
+/** The six built-in sample robot names (loaded on first visit). */
+export const SAMPLE_NAMES = [
+  'Tracker', 'Evader', 'Sniper',
+  'WallAvoider', 'DopplerDuelist', 'ReactiveShield',
+];
 
 /** Default sensor object for VM tests. */
 export const DEFAULT_SENSORS = {

@@ -144,6 +144,15 @@ export class CombatEngine {
       }
     }
 
+    // 2b. BEEP-based SIGNAL interrupt — notify all alive teammates
+    for (const r of this.robots) {
+      if (!r.alive || r.vm.beep <= 0) continue;
+      for (const other of this.robots) {
+        if (!other.alive || other.id === r.id) continue;
+        queueInterrupt(other.vm, 11); // 11 = SIGNAL
+      }
+    }
+
     // 3. Apply thrust / braking
     for (const r of this.robots) {
       if (!r.alive) continue;
@@ -458,7 +467,7 @@ export class CombatEngine {
     // 10: ROBOTS — fewer than N robots alive
     if (s.TEAMMATES < p[10]) fire(10);
 
-    // 11: SIGNAL — not implemented (BEEP-based signalling reserved for future)
+    // 11: SIGNAL — queued externally via BEEP (handled in step() after VMs run)
 
     // 12: CHRONON — fires every N ticks (0 = disabled)
     if (p[12] > 0 && this.tick % p[12] === 0) fire(12);
@@ -483,8 +492,10 @@ export class CombatEngine {
         heat:     r.heat,
         maxHeat:  r.hw.maxHeat,
         shieldActive: r.shieldActive,
-        aimAngle: r.aimAngle,
-        color:    r.color,
+        aimAngle:  r.aimAngle,
+        scanAngle: ((r.aimAngle + r.vm.scan) % 360 + 360) % 360,
+        lookAngle: ((r.aimAngle + r.vm.look) % 360 + 360) % 360,
+        color:     r.color,
       })),
       projectiles: this.projectiles.map(p => ({
         id: p.id, type: p.type,

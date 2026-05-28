@@ -43,7 +43,8 @@ test('leaderboard shows each sample robot by name', async ({ page }) => {
 
 test('initial ELO rating is 1200 for all robots', async ({ page }) => {
   await navTo(page, 'Leaderboard');
-  const eloValues = await page.locator('.lb-table tbody td:nth-child(5)').allTextContents();
+  // Column order: # | Robot | Weapon | HP cost | W | L | D | ELO | (button)
+  const eloValues = await page.locator('.lb-table tbody td:nth-child(8)').allTextContents();
   for (const elo of eloValues) {
     expect(elo.trim()).toBe('1200');
   }
@@ -73,7 +74,8 @@ test('running rated matches updates ELO from 1200', async ({ page }) => {
   await page.locator('button', { hasText: /Rated Matches/ }).click();
   // Wait for running state to clear
   await expect(page.locator('button', { hasText: /Rated Matches/ })).toBeEnabled({ timeout: 30000 });
-  const eloValues = await page.locator('.lb-table tbody td:nth-child(5)').allTextContents();
+  // Column order: # | Robot | Weapon | HP cost | W | L | D | ELO | (button)
+  const eloValues = await page.locator('.lb-table tbody td:nth-child(8)').allTextContents();
   // After battles, at least some ratings should differ from 1200
   const changed = eloValues.some(v => v.trim() !== '1200');
   expect(changed).toBe(true);
@@ -83,7 +85,8 @@ test('ELO values are integers', async ({ page }) => {
   await navTo(page, 'Leaderboard');
   await page.locator('button', { hasText: /Rated Matches/ }).click();
   await expect(page.locator('button', { hasText: /Rated Matches/ })).toBeEnabled({ timeout: 30000 });
-  const eloValues = await page.locator('.lb-table tbody td:nth-child(5)').allTextContents();
+  // Column order: # | Robot | Weapon | HP cost | W | L | D | ELO | (button)
+  const eloValues = await page.locator('.lb-table tbody td:nth-child(8)').allTextContents();
   for (const v of eloValues) {
     expect(Number.isInteger(Number(v.trim()))).toBe(true);
   }
