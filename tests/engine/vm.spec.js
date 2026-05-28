@@ -8,12 +8,19 @@ test.beforeEach(async ({ page }) => {
   await loadApp(page);
 });
 
-// Count how many step() calls are needed to execute all instructions exactly once.
-// Two-word opcodes: PUSH=0, STORE=25, RECALL=26, JUMP=27, JIZ=28, CALL=29, RREAD=31, RWRITE=32
-const TWO_WORD = new Set([0, 25, 26, 27, 28, 29, 31, 32]);
+// Count instructions in bytecode — accounts for 1-word, 2-word, and 3-word opcodes.
+// 2-word: PUSH=0, STORE=25, RECALL=26, JUMP=27, JIZ=28, CALL=29, RREAD=31, RWRITE=32
+// 3-word (v0.5): SETINT=41, SETPARAM=42
+const TWO_WORD   = new Set([0, 25, 26, 27, 28, 29, 31, 32]);
+const THREE_WORD = new Set([41, 42]);
 function instrCount(bc) {
   let n = 0, i = 0;
-  while (i < bc.length) { n++; i += TWO_WORD.has(bc[i]) ? 2 : 1; }
+  while (i < bc.length) {
+    n++;
+    if (THREE_WORD.has(bc[i])) i += 3;
+    else if (TWO_WORD.has(bc[i])) i += 2;
+    else i += 1;
+  }
   return n;
 }
 
@@ -25,11 +32,16 @@ async function run(page, source, cycles = undefined) {
     const { bytecode, errors } = compile(src);
     if (errors.length) return { error: errors[0] };
 
-    // Default: count instructions so the program runs exactly once
-    const twoWord = new Set([0, 25, 26, 27, 28, 29, 31, 32]);
+    const twoWord   = new Set([0, 25, 26, 27, 28, 29, 31, 32]);
+    const threeWord = new Set([41, 42]);
     const actualCycles = cycles ?? (() => {
       let n = 0, i = 0;
-      while (i < bytecode.length) { n++; i += twoWord.has(bytecode[i]) ? 2 : 1; }
+      while (i < bytecode.length) {
+        n++;
+        if (threeWord.has(bytecode[i])) i += 3;
+        else if (twoWord.has(bytecode[i])) i += 2;
+        else i += 1;
+      }
       return n || 1;
     })();
 
@@ -46,10 +58,16 @@ async function runWithSensors(page, source, sensors, cycles = undefined) {
     const { createVM, setSensors, runTick } = await import('/src/engine/vm.js');
     const { bytecode } = compile(src);
 
-    const twoWord = new Set([0, 25, 26, 27, 28, 29, 31, 32]);
+    const twoWord   = new Set([0, 25, 26, 27, 28, 29, 31, 32]);
+    const threeWord = new Set([41, 42]);
     const actualCycles = cycles ?? (() => {
       let n = 0, i = 0;
-      while (i < bytecode.length) { n++; i += twoWord.has(bytecode[i]) ? 2 : 1; }
+      while (i < bytecode.length) {
+        n++;
+        if (threeWord.has(bytecode[i])) i += 3;
+        else if (twoWord.has(bytecode[i])) i += 2;
+        else i += 1;
+      }
       return n || 1;
     })();
 
@@ -59,6 +77,26 @@ async function runWithSensors(page, source, sensors, cycles = undefined) {
     return { stack: vm.stack, fire: vm.fire, thrustX: vm.thrustX, thrustY: vm.thrustY,
              brake: vm.brake, aim: vm.aim, shield: vm.shield, vars: vm.vars, pc: vm.pc };
   }, { src: source, sensors, cycles });
+}
+
+// Full-state run — returns entire VM object for interrupt / look / scan tests.
+async function runFull(page, source, cycles, sensors = {}) {
+  return page.evaluate(async ({ src, cycles, sensors }) => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, setSensors, runTick } = await import('/src/engine/vm.js');
+    const { bytecode, errors } = compile(src);
+    if (errors.length) return { error: errors[0] };
+    const vm = createVM(bytecode);
+    if (Object.keys(sensors).length) setSensors(vm, sensors);
+    runTick(vm, cycles);
+    return {
+      stack: vm.stack, fire: vm.fire, thrustX: vm.thrustX, thrustY: vm.thrustY,
+      brake: vm.brake, aim: vm.aim, shield: vm.shield, vars: vm.vars, pc: vm.pc,
+      look: vm.look, scan: vm.scan,
+      intEnabled: vm.intEnabled, intHandlers: vm.intHandlers,
+      intParams: vm.intParams, intQueue: vm.intQueue, intReturnPC: vm.intReturnPC,
+    };
+  }, { src: source, cycles, sensors });
 }
 
 // ── PUSH ─────────────────────────────────────────────────────────────────────
@@ -394,4 +432,310 @@ test('PC wraps to 0 when it exceeds bytecode length', async ({ page }) => {
     return { pc: vm.pc };
   });
   expect(pc).toBeGreaterThanOrEqual(0);
+});
+
+// ── v0.5 Math — SQRT / DIST ───────────────────────────────────────────────────
+
+test('SQRT of perfect square returns integer root', async ({ page }) => {
+  const { stack } = await run(page, '25 SQRT');
+  expect(stack).toEqual([5]);
+});
+
+test('SQRT of 9 returns 3', async ({ page }) => {
+  const { stack } = await run(page, '9 SQRT');
+  expect(stack).toEqual([3]);
+});
+
+test('SQRT of 0 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '0 SQRT');
+  expect(stack).toEqual([0]);
+});
+
+test('SQRT of negative returns 0', async ({ page }) => {
+  const { stack } = await run(page, '-4 SQRT');
+  expect(stack).toEqual([0]);
+});
+
+test('SQRT floors non-perfect square', async ({ page }) => {
+  const { stack } = await run(page, '10 SQRT');
+  expect(stack).toEqual([3]);  // floor(sqrt(10)) = 3
+});
+
+test('DIST of 3 4 returns 5 (Pythagorean)', async ({ page }) => {
+  const { stack } = await run(page, '3 4 DIST');
+  expect(stack).toEqual([5]);
+});
+
+test('DIST of 0 0 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '0 0 DIST');
+  expect(stack).toEqual([0]);
+});
+
+// ── v0.5 Trig — SIN / COS / TAN ──────────────────────────────────────────────
+
+test('SIN 90 returns 1000', async ({ page }) => {
+  const { stack } = await run(page, '90 SIN');
+  expect(stack).toEqual([1000]);
+});
+
+test('SIN 0 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '0 SIN');
+  expect(stack).toEqual([0]);
+});
+
+test('SIN 180 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '180 SIN');
+  expect(stack[0]).toBeLessThanOrEqual(0);
+  expect(Math.abs(stack[0])).toBeLessThanOrEqual(1);  // ≈ 0 due to float precision
+});
+
+test('COS 0 returns 1000', async ({ page }) => {
+  const { stack } = await run(page, '0 COS');
+  expect(stack).toEqual([1000]);
+});
+
+test('COS 90 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '90 COS');
+  expect(Math.abs(stack[0])).toBeLessThanOrEqual(1);  // ≈ 0 due to float precision
+});
+
+test('COS 180 returns -1000', async ({ page }) => {
+  const { stack } = await run(page, '180 COS');
+  expect(stack).toEqual([-1000]);
+});
+
+test('TAN 45 returns 1000', async ({ page }) => {
+  const { stack } = await run(page, '45 TAN');
+  expect(stack).toEqual([1000]);
+});
+
+test('TAN 0 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '0 TAN');
+  expect(stack).toEqual([0]);
+});
+
+test('TAN 90 returns 0 (undefined clamped)', async ({ page }) => {
+  const { stack } = await run(page, '90 TAN');
+  expect(stack).toEqual([0]);
+});
+
+test('TAN 270 returns 0 (undefined clamped)', async ({ page }) => {
+  const { stack } = await run(page, '270 TAN');
+  expect(stack).toEqual([0]);
+});
+
+// ── v0.5 Trig — ARCTAN / ARCSIN / ARCCOS ─────────────────────────────────────
+
+test('ARCTAN y=0 x=1000 returns 0 degrees (right)', async ({ page }) => {
+  // Stack: y x — deg; push y then x
+  const { stack } = await run(page, '0 1000 ARCTAN');
+  expect(stack).toEqual([0]);
+});
+
+test('ARCTAN y=1000 x=0 returns 90 degrees (down)', async ({ page }) => {
+  const { stack } = await run(page, '1000 0 ARCTAN');
+  expect(stack).toEqual([90]);
+});
+
+test('ARCTAN y=0 x=-1 returns 180 degrees (left)', async ({ page }) => {
+  const { stack } = await run(page, '0 -1 ARCTAN');
+  expect(stack).toEqual([180]);
+});
+
+test('ARCSIN 1000 returns 90', async ({ page }) => {
+  const { stack } = await run(page, '1000 ARCSIN');
+  expect(stack).toEqual([90]);
+});
+
+test('ARCSIN 0 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '0 ARCSIN');
+  expect(stack).toEqual([0]);
+});
+
+test('ARCSIN clamps input > 1000', async ({ page }) => {
+  // Should not NaN — clamp to 1, return 90
+  const { stack } = await run(page, '2000 ARCSIN');
+  expect(stack).toEqual([90]);
+});
+
+test('ARCCOS 1000 returns 0', async ({ page }) => {
+  const { stack } = await run(page, '1000 ARCCOS');
+  expect(stack).toEqual([0]);
+});
+
+test('ARCCOS 0 returns 90', async ({ page }) => {
+  const { stack } = await run(page, '0 ARCCOS');
+  expect(stack).toEqual([90]);
+});
+
+// ── v0.5 Interrupt control — INTON / INTOFF / FLUSHINT ───────────────────────
+
+test('INTOFF sets intEnabled to false', async ({ page }) => {
+  const { intEnabled } = await runFull(page, 'INTOFF', 1);
+  expect(intEnabled).toBe(false);
+});
+
+test('INTON sets intEnabled to true', async ({ page }) => {
+  // Turn off then back on
+  const { intEnabled } = await runFull(page, 'INTOFF INTON', 2);
+  expect(intEnabled).toBe(true);
+});
+
+test('FLUSHINT clears the interrupt queue', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, runTick, queueInterrupt } = await import('/src/engine/vm.js');
+    const { bytecode } = compile('FLUSHINT');
+    const vm = createVM(bytecode);
+    // Manually register handler and queue an interrupt
+    vm.intHandlers[0] = 99;
+    queueInterrupt(vm, 0);
+    runTick(vm, 1);
+    return { intQueue: vm.intQueue };
+  });
+  expect(result.intQueue).toHaveLength(0);
+});
+
+// ── v0.5 Interrupt control — SETINT / SETPARAM ───────────────────────────────
+
+test('SETINT stores handler PC in intHandlers', async ({ page }) => {
+  // SETINT DAMAGE handler → bytecode: [SETINT(41), 2, 3] then handler: label at PC 3
+  const { intHandlers } = await runFull(page,
+    'SETINT DAMAGE handler\nhandler:', 1);
+  expect(intHandlers[2]).toBe(3);  // DAMAGE=2, handler at PC 3
+});
+
+test('SETPARAM stores threshold in intParams', async ({ page }) => {
+  const { intParams } = await runFull(page, 'SETPARAM WALL 50', 1);
+  expect(intParams[1]).toBe(50);  // WALL=1
+});
+
+test('SETPARAM CHRONON 10 sets CHRONON param', async ({ page }) => {
+  const { intParams } = await runFull(page, 'SETPARAM CHRONON 10', 1);
+  expect(intParams[12]).toBe(10);  // CHRONON=12
+});
+
+// ── v0.5 Interrupt dispatch ───────────────────────────────────────────────────
+
+test('queued interrupt redirects execution to handler', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, runTick, queueInterrupt } = await import('/src/engine/vm.js');
+    // Program: push 1 (main body) ; handler: push 99
+    const { bytecode } = compile('1\nGOTO done\nhandler:\n99\ndone:');
+    const vm = createVM(bytecode);
+    // Register handler for interrupt type 0 (COLLISION)
+    vm.intHandlers[0] = 4;  // handler: is at PC 4 (after PUSH 1, JUMP done)
+    // Queue the interrupt before running
+    queueInterrupt(vm, 0);
+    runTick(vm, 10);
+    return { stack: vm.stack };
+  });
+  // Handler (push 99) should have executed
+  expect(result.stack).toContain(99);
+});
+
+test('interrupt does not fire when intEnabled is false', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, runTick, queueInterrupt } = await import('/src/engine/vm.js');
+    const { bytecode } = compile('1');
+    const vm = createVM(bytecode);
+    vm.intHandlers[0] = 99;
+    vm.intEnabled = false;
+    queueInterrupt(vm, 0);
+    runTick(vm, 5);
+    return { intQueue: vm.intQueue };
+  });
+  // Queue not cleared since interrupts disabled
+  expect(result.intQueue).toContain(0);
+});
+
+test('RTI re-enables interrupts and restores PC', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, runTick, queueInterrupt } = await import('/src/engine/vm.js');
+    const { bytecode } = compile('GOTO done\nhandler:\n99\nRTI\ndone:\n1');
+    const vm = createVM(bytecode);
+    vm.intHandlers[0] = 2;  // handler: at PC 2 (after JUMP done instruction)
+    queueInterrupt(vm, 0);
+    runTick(vm, 20);
+    return { stack: vm.stack, intEnabled: vm.intEnabled };
+  });
+  expect(result.intEnabled).toBe(true);
+  expect(result.stack).toContain(99);
+});
+
+// ── v0.5 LOOK / SCAN registers ────────────────────────────────────────────────
+
+test('writing LOOK sets vm.look', async ({ page }) => {
+  const { look } = await runFull(page, '45 LOOK', 2);
+  expect(look).toBe(45);
+});
+
+test('writing SCAN sets vm.scan', async ({ page }) => {
+  const { scan } = await runFull(page, '90 SCAN', 2);
+  expect(scan).toBe(90);
+});
+
+test('LOOK value wraps at 360', async ({ page }) => {
+  const { look } = await runFull(page, '400 LOOK', 2);
+  expect(look).toBe(40);  // 400 % 360 = 40
+});
+
+// ── v0.5 New sensor reads ─────────────────────────────────────────────────────
+
+test('reading DAMAGE returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'DAMAGE', { DAMAGE: 15 });
+  expect(stack).toEqual([15]);
+});
+
+test('reading DOPPLER returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'DOPPLER', { DOPPLER: -5 });
+  expect(stack).toEqual([-5]);
+});
+
+test('reading TOP returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'TOP', { TOP: 30 });
+  expect(stack).toEqual([30]);
+});
+
+test('reading BOT returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'BOT', { BOT: 40 });
+  expect(stack).toEqual([40]);
+});
+
+test('reading LEFT returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'LEFT', { LEFT: 25 });
+  expect(stack).toEqual([25]);
+});
+
+test('reading RIGHT returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'RIGHT', { RIGHT: 60 });
+  expect(stack).toEqual([60]);
+});
+
+test('reading ID returns sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'ID', { ID: 1 });
+  expect(stack).toEqual([1]);
+});
+
+test('X alias returns POSX sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'X', { POSX: 77 });
+  expect(stack).toEqual([77]);
+});
+
+test('Y alias returns POSY sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'Y', { POSY: 123 });
+  expect(stack).toEqual([123]);
+});
+
+test('ROBOTS alias returns TEAMMATES sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'ROBOTS', { TEAMMATES: 3 });
+  expect(stack).toEqual([3]);
+});
+
+test('CHRONON alias returns TIME sensor value', async ({ page }) => {
+  const { stack } = await runWithSensors(page, 'CHRONON', { TIME: 42 });
+  expect(stack).toEqual([42]);
 });

@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.5 (DOPPLER, LOOK/SCAN, wall registers, CHRONON, interrupts, trig opcodes)
+**Version:** 0.5 (DOPPLER, LOOK/SCAN, wall registers, CHRONON, interrupts, trig opcodes — fully implemented)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -317,8 +317,8 @@ LOOP
   DOPPLER STORE dopplerVal    ; positive = enemy approaching
 
   ; Crude lead: add doppler/4 degrees of lead angle
-  dopplerVal RECALL 4 / STORE leadAngle
-  targetBearing RECALL leadAngle RECALL + AIM
+  RECALL dopplerVal 4 / STORE leadAngle
+  RECALL targetBearing RECALL leadAngle + AIM
 
   1 FIRE
 

@@ -1,5 +1,5 @@
 import { getHardwareStats, HARDWARE_DEFS, ROBOT_COLORS, ROBOT_RADIUS } from './hardware.js';
-import { createVM, setSensors, runTick } from './vm.js';
+import { createVM, setSensors, runTick, queueInterrupt } from './vm.js';
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -59,10 +59,18 @@ export class CombatEngine {
 
     this.robots = config.robots.map((rDef, idx) => {
       const hw = getHardwareStats(rDef.hardware || {});
+      const vm = createVM(rDef.bytecode || []);
+
+      // Set arena-size-dependent interrupt defaults
+      vm.intParams[5] = this.height - 20;  // BOTTOM: y > arenaH-20
+      vm.intParams[7] = this.width  - 20;  // RIGHT:  x > arenaW-20
+      vm.intParams[8] = this.width  * 2;   // RADAR:  range ≤ 2×arenaW
+      vm.intParams[9] = this.width  * 2;   // RANGE:  range ≤ 2×arenaW
+
       return {
         id:     rDef.id   || `robot_${idx}`,
         name:   rDef.name || `Robot ${idx + 1}`,
-        vm:     createVM(rDef.bytecode || []),
+        vm,
         hw,
         x:  positions[idx].x,
         y:  positions[idx].y,
@@ -77,10 +85,15 @@ export class CombatEngine {
         color:       ROBOT_COLORS[idx % ROBOT_COLORS.length],
         stunnedTicks: 0,
         rng:         mulberry32((config.seed ?? 12345) + (idx + 1) * 997),
+        robotIdx:    idx,           // stable 0-based index (ID sensor)
+        damageTaken: 0,             // damage received THIS tick (for DAMAGE interrupt)
+        totalDamage: 0,             // cumulative damage received (DAMAGE sensor)
         sensors: {
           ENERGY:0, ARMOR:0, HEAT:0, RANGE:0, RADAR:180,
           SPEEDX:0, SPEEDY:0, POSX:0, POSY:0,
           COLLISION:0, STUNNED:0, TEAMMATES:0, RANDOM:0, TIME:0,
+          // v0.5
+          DAMAGE:0, DOPPLER:0, TOP:0, BOT:0, LEFT:0, RIGHT:0, ID:idx,
         },
       };
     });
@@ -104,10 +117,14 @@ export class CombatEngine {
   }
 
   step() {
-    // 1. Update sensors
+    // 1. Update sensors (reads previous-tick state) + check interrupt conditions
+    //    (interrupt conditions are evaluated against last tick's damage & sensors)
+    //    then reset per-tick damage accumulator.
     for (const r of this.robots) {
       if (!r.alive) continue;
       this.updateSensors(r);
+      if (r.stunnedTicks === 0) this.checkInterrupts(r);
+      r.damageTaken = 0;   // reset for this tick's physics phase
     }
 
     // 2. Run VMs & collect actuator commands
@@ -146,10 +163,10 @@ export class CombatEngine {
       r.x += r.vx;
       r.y += r.vy;
 
-      if (r.x - ROBOT_RADIUS < 0)            { r.x = ROBOT_RADIUS;             r.vx = Math.abs(r.vx);  r.sensors.COLLISION = 1; }
-      if (r.x + ROBOT_RADIUS > this.width)   { r.x = this.width - ROBOT_RADIUS; r.vx = -Math.abs(r.vx); r.sensors.COLLISION = 1; }
-      if (r.y - ROBOT_RADIUS < 0)            { r.y = ROBOT_RADIUS;             r.vy = Math.abs(r.vy);  r.sensors.COLLISION = 1; }
-      if (r.y + ROBOT_RADIUS > this.height)  { r.y = this.height - ROBOT_RADIUS;r.vy = -Math.abs(r.vy); r.sensors.COLLISION = 1; }
+      if (r.x - ROBOT_RADIUS < 0)            { r.x = ROBOT_RADIUS;              r.vx =  Math.abs(r.vx);  r.sensors.COLLISION = 1; }
+      if (r.x + ROBOT_RADIUS > this.width)   { r.x = this.width - ROBOT_RADIUS; r.vx = -Math.abs(r.vx);  r.sensors.COLLISION = 1; }
+      if (r.y - ROBOT_RADIUS < 0)            { r.y = ROBOT_RADIUS;              r.vy =  Math.abs(r.vy);  r.sensors.COLLISION = 1; }
+      if (r.y + ROBOT_RADIUS > this.height)  { r.y = this.height - ROBOT_RADIUS;r.vy = -Math.abs(r.vy);  r.sensors.COLLISION = 1; }
     }
 
     // 5. Robot–robot collisions
@@ -269,6 +286,8 @@ export class CombatEngine {
     let dmg = rawDamage;
     if (robot.shieldActive && robot.energy > 0) dmg *= robot.hw.shieldMult;
     robot.armor -= dmg;
+    robot.damageTaken += dmg;
+    robot.totalDamage += dmg;
     if (robot.armor <= 0) { robot.armor = 0; robot.alive = false; }
   }
 
@@ -322,13 +341,27 @@ export class CombatEngine {
     r.sensors.STUNNED     = r.stunnedTicks > 0 ? 1 : 0;
     r.sensors.TIME        = this.tick;
     r.sensors.RANDOM      = Math.floor(r.rng() * 256);
-    r.sensors.TEAMMATES   = this.robots.filter(o => o.alive && o.id !== r.id && o.team === r.team).length;
+    // v0.5: ROBOTS = total alive robots (including self); both ROBOTS and TEAMMATES alias this
+    r.sensors.TEAMMATES   = this.robots.filter(o => o.alive).length;
+    // v0.5 new sensors
+    r.sensors.DAMAGE      = Math.round(r.totalDamage);
+    r.sensors.TOP         = Math.round(r.y);
+    r.sensors.BOT         = Math.round(this.height - r.y);
+    r.sensors.LEFT        = Math.round(r.x);
+    r.sensors.RIGHT       = Math.round(this.width - r.x);
+    r.sensors.ID          = r.robotIdx;
     this.updateRadar(r);
   }
 
   updateRadar(r) {
+    // Scan direction = AIM + SCAN offset (for RADAR/RANGE sensors)
+    const scanDir = ((r.aimAngle + r.vm.scan) % 360 + 360) % 360;
+    // Look direction = AIM + LOOK offset (for DOPPLER sensor)
+    const lookDir = ((r.aimAngle + r.vm.look) % 360 + 360) % 360;
+
     let nearest = Infinity;
-    let bearing = r.sensors.RADAR;
+    let bearing = r.sensors.RADAR;   // retain last known if no detection
+    let dopplerVal = 0;
 
     for (const o of this.robots) {
       if (o.id === r.id || !o.alive) continue;
@@ -336,9 +369,10 @@ export class CombatEngine {
       const dist = Math.hypot(dx, dy);
       if (dist > r.hw.radarRange) continue;
 
+      // Check if enemy is within the radar cone (centred on scanDir)
       if (r.hw.radarCone < 360) {
         const b = angleDeg(dy, dx);
-        if (Math.abs(angleDiff(b, r.aimAngle)) > r.hw.radarCone / 2) continue;
+        if (Math.abs(angleDiff(b, scanDir)) > r.hw.radarCone / 2) continue;
       }
 
       if (dist < nearest) {
@@ -353,6 +387,84 @@ export class CombatEngine {
     } else {
       r.sensors.RANGE = 0;
     }
+
+    // DOPPLER: radial velocity of nearest enemy in AIM+LOOK direction
+    // Positive = approaching, negative = receding.
+    let dopplerNearest = Infinity;
+    for (const o of this.robots) {
+      if (o.id === r.id || !o.alive) continue;
+      const dx = o.x - r.x, dy = o.y - r.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > r.hw.radarRange) continue;
+
+      if (r.hw.radarCone < 360) {
+        const b = angleDeg(dy, dx);
+        if (Math.abs(angleDiff(b, lookDir)) > r.hw.radarCone / 2) continue;
+      }
+
+      if (dist < dopplerNearest) {
+        dopplerNearest = dist;
+        if (dist > 0.01) {
+          const nx = dx / dist, ny = dy / dist;          // unit vector toward enemy
+          const relVx = o.vx - r.vx, relVy = o.vy - r.vy; // relative velocity
+          // Dot product > 0 means enemy moving away; negate for "approaching = positive"
+          dopplerVal = -Math.round(relVx * nx + relVy * ny);
+        }
+      }
+    }
+    r.sensors.DOPPLER = dopplerVal;
+  }
+
+  /**
+   * Evaluate all interrupt conditions against current sensor state + last tick's
+   * damageTaken, then queue any whose handlers are registered.
+   */
+  checkInterrupts(r) {
+    const p = r.vm.intParams;
+    const s = r.sensors;
+
+    const fire = (type) => queueInterrupt(r.vm, type);
+
+    // 0: COLLISION — any wall or robot collision this tick
+    if (s.COLLISION) fire(0);
+
+    // 1: WALL — within N px of any wall
+    if (Math.min(s.TOP, s.BOT, s.LEFT, s.RIGHT) <= p[1]) fire(1);
+
+    // 2: DAMAGE — damage taken last tick ≥ threshold
+    if (r.damageTaken > 0 && r.damageTaken >= p[2]) fire(2);
+
+    // 3: SHIELD — energy below threshold while shield is active
+    if (r.shieldActive && r.energy <= p[3]) fire(3);
+
+    // 4: TOP — within N px of top wall
+    if (s.TOP <= p[4]) fire(4);
+
+    // 5: BOTTOM — within N px of bottom wall
+    if (s.BOT <= p[5]) fire(5);
+
+    // 6: LEFT — within N px of left wall
+    if (s.LEFT <= p[6]) fire(6);
+
+    // 7: RIGHT — within N px of right wall
+    if (s.RIGHT <= p[7]) fire(7);
+
+    // 8: RADAR — nearest detected enemy ≤ threshold
+    if (s.RANGE > 0 && s.RANGE <= p[8]) fire(8);
+
+    // 9: RANGE — same direction-specific scan (using vm.scan offset)
+    if (s.RANGE > 0 && s.RANGE <= p[9]) fire(9);
+
+    // 10: ROBOTS — fewer than N robots alive
+    if (s.TEAMMATES < p[10]) fire(10);
+
+    // 11: SIGNAL — not implemented (BEEP-based signalling reserved for future)
+
+    // 12: CHRONON — fires every N ticks (0 = disabled)
+    if (p[12] > 0 && this.tick % p[12] === 0) fire(12);
+
+    // Sort queue so higher-priority (lower-numbered) interrupts fire first
+    r.vm.intQueue.sort((a, b) => a - b);
   }
 
   getFrame() {

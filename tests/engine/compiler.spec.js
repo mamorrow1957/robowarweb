@@ -384,3 +384,235 @@ test('classic tracker program compiles cleanly', async ({ page }) => {
   const { errors } = await compile(page, src);
   expect(errors).toHaveLength(0);
 });
+
+// ── v0.5 Math opcodes ─────────────────────────────────────────────────────────
+
+test('SQRT emits opcode 33', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'SQRT');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([33]);
+});
+
+test('DIST emits opcode 34', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'DIST');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([34]);
+});
+
+test('SIN emits opcode 35', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'SIN');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([35]);
+});
+
+test('COS emits opcode 36', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'COS');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([36]);
+});
+
+test('TAN emits opcode 37', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'TAN');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([37]);
+});
+
+test('ARCTAN emits opcode 38', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'ARCTAN');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([38]);
+});
+
+test('ARCSIN emits opcode 39', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'ARCSIN');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([39]);
+});
+
+test('ARCCOS emits opcode 40', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'ARCCOS');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([40]);
+});
+
+// ── v0.5 Interrupt control opcodes ───────────────────────────────────────────
+
+test('INTON emits opcode 43', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'INTON');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([43]);
+});
+
+test('INTOFF emits opcode 44', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'INTOFF');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([44]);
+});
+
+test('RTI emits opcode 45', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'RTI');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([45]);
+});
+
+test('FLUSHINT emits opcode 46', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'FLUSHINT');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([46]);
+});
+
+// ── v0.5 SETINT / SETPARAM ────────────────────────────────────────────────────
+
+test('SETINT emits [41, int-type, handler-pc]', async ({ page }) => {
+  // SETINT DAMAGE handler — handler label at PC=3 (past the 3-word SETINT)
+  const { bytecode, errors } = await compile(page, 'SETINT DAMAGE handler\nhandler:');
+  expect(errors).toHaveLength(0);
+  expect(bytecode[0]).toBe(41);  // OP.SETINT
+  expect(bytecode[1]).toBe(2);   // INT_TYPES.DAMAGE
+  expect(bytecode[2]).toBe(3);   // handler label at PC 3
+});
+
+test('SETINT with 0 label disables handler', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'SETINT WALL 0');
+  expect(errors).toHaveLength(0);
+  expect(bytecode[0]).toBe(41);
+  expect(bytecode[1]).toBe(1);   // INT_TYPES.WALL
+  expect(bytecode[2]).toBe(-1);  // -1 = disabled
+});
+
+test('SETPARAM emits [42, int-type, value]', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'SETPARAM WALL 40');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([42, 1, 40]);  // OP.SETPARAM, INT_TYPES.WALL, 40
+});
+
+test('SETPARAM CHRONON 10 compiles correctly', async ({ page }) => {
+  const { bytecode, errors } = await compile(page, 'SETPARAM CHRONON 10');
+  expect(errors).toHaveLength(0);
+  expect(bytecode).toEqual([42, 12, 10]);  // CHRONON=12
+});
+
+test('SETINT with unknown interrupt name produces error', async ({ page }) => {
+  const { errors } = await compile(page, 'SETINT NOTANINT myHandler\nmyHandler:');
+  expect(errors.length).toBeGreaterThan(0);
+  expect(errors[0]).toContain('NOTANINT');
+});
+
+test('SETINT with unknown label produces error', async ({ page }) => {
+  const { errors } = await compile(page, 'SETINT DAMAGE noSuchLabel');
+  expect(errors.length).toBeGreaterThan(0);
+});
+
+test('SETPARAM with unknown interrupt name produces error', async ({ page }) => {
+  const { errors } = await compile(page, 'SETPARAM BADNAME 5');
+  expect(errors.length).toBeGreaterThan(0);
+});
+
+// ── v0.5 New read-only sensors ────────────────────────────────────────────────
+
+test('DAMAGE emits RREAD with index 23', async ({ page }) => {
+  const { bytecode } = await compile(page, 'DAMAGE');
+  expect(bytecode).toEqual([31, 23]);
+});
+
+test('DOPPLER emits RREAD with index 24', async ({ page }) => {
+  const { bytecode } = await compile(page, 'DOPPLER');
+  expect(bytecode).toEqual([31, 24]);
+});
+
+test('TOP emits RREAD with index 25', async ({ page }) => {
+  const { bytecode } = await compile(page, 'TOP');
+  expect(bytecode).toEqual([31, 25]);
+});
+
+test('BOT emits RREAD with index 26', async ({ page }) => {
+  const { bytecode } = await compile(page, 'BOT');
+  expect(bytecode).toEqual([31, 26]);
+});
+
+test('LEFT emits RREAD with index 27', async ({ page }) => {
+  const { bytecode } = await compile(page, 'LEFT');
+  expect(bytecode).toEqual([31, 27]);
+});
+
+test('RIGHT emits RREAD with index 28', async ({ page }) => {
+  const { bytecode } = await compile(page, 'RIGHT');
+  expect(bytecode).toEqual([31, 28]);
+});
+
+test('ID emits RREAD with index 29', async ({ page }) => {
+  const { bytecode } = await compile(page, 'ID');
+  expect(bytecode).toEqual([31, 29]);
+});
+
+// ── v0.5 Write registers ──────────────────────────────────────────────────────
+
+test('LOOK emits RWRITE with index 30', async ({ page }) => {
+  const { bytecode } = await compile(page, 'LOOK');
+  expect(bytecode).toEqual([32, 30]);
+});
+
+test('SCAN emits RWRITE with index 31', async ({ page }) => {
+  const { bytecode } = await compile(page, 'SCAN');
+  expect(bytecode).toEqual([32, 31]);
+});
+
+// ── v0.5 Register aliases ─────────────────────────────────────────────────────
+
+test('X is alias for POSX (emits RREAD index 7)', async ({ page }) => {
+  const { bytecode } = await compile(page, 'X');
+  expect(bytecode).toEqual([31, 7]);  // same as POSX
+});
+
+test('Y is alias for POSY (emits RREAD index 8)', async ({ page }) => {
+  const { bytecode } = await compile(page, 'Y');
+  expect(bytecode).toEqual([31, 8]);  // same as POSY
+});
+
+test('ROBOTS is alias for TEAMMATES (emits RREAD index 11)', async ({ page }) => {
+  const { bytecode } = await compile(page, 'ROBOTS');
+  expect(bytecode).toEqual([31, 11]);  // same as TEAMMATES
+});
+
+test('CHRONON is alias for TIME (emits RREAD index 13)', async ({ page }) => {
+  const { bytecode } = await compile(page, 'CHRONON');
+  expect(bytecode).toEqual([31, 13]);  // same as TIME
+});
+
+// ── v0.5 Sample programs ──────────────────────────────────────────────────────
+
+test('Doppler duelist sample compiles cleanly', async ({ page }) => {
+  const src = [
+    '#DEFINE targetBearing 1',
+    '#DEFINE dopplerVal    2',
+    '#DEFINE leadAngle     3',
+    'LOOP',
+    '  RADAR STORE targetBearing',
+    '  0 LOOK',
+    '  DOPPLER STORE dopplerVal',
+    '  RECALL dopplerVal 4 / STORE leadAngle',
+    '  RECALL targetBearing RECALL leadAngle + AIM',
+    '  1 FIRE',
+    'POOL',
+  ].join('\n');
+  const { errors } = await compile(page, src);
+  expect(errors).toHaveLength(0);
+});
+
+test('interrupt wall-avoider sample compiles cleanly', async ({ page }) => {
+  const src = [
+    'SETINT WALL wallAvoid',
+    'SETPARAM WALL 40',
+    'INTON',
+    'LOOP',
+    '  RADAR AIM',
+    '  1 FIRE',
+    'POOL',
+    'wallAvoid:',
+    '  X 150 - NEG THRUSTX',
+    '  Y 150 - NEG THRUSTY',
+    'RTI',
+  ].join('\n');
+  const { errors } = await compile(page, src);
+  expect(errors).toHaveLength(0);
+});

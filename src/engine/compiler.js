@@ -5,27 +5,59 @@ export const OP = {
   DUP:20, POP:21, SWAP:22, OVER:23, ROT:24,
   STORE:25, RECALL:26, JUMP:27, JIZ:28, CALL:29, RETURN:30,
   RREAD:31, RWRITE:32,
+  // v0.5 — math
+  SQRT:33, DIST:34,
+  SIN:35, COS:36, TAN:37, ARCTAN:38, ARCSIN:39, ARCCOS:40,
+  // v0.5 — interrupts
+  SETINT:41, SETPARAM:42, INTON:43, INTOFF:44, RTI:45, FLUSHINT:46,
 };
 
 export const REG = {
+  // Read-only sensors (original)
   ENERGY:0, ARMOR:1, HEAT:2, RANGE:3, RADAR:4,
   SPEEDX:5, SPEEDY:6, POSX:7, POSY:8,
   COLLISION:9, STUNNED:10, TEAMMATES:11, RANDOM:12, TIME:13,
+  // Write-only actuators (original)
   SHIELD:14, GUNX:15, GUNY:16, FIRE:17,
   THRUSTX:18, THRUSTY:19, BRAKE:20, BEEP:21, AIM:22,
+  // v0.5 — new read-only sensors
+  DAMAGE:23, DOPPLER:24, TOP:25, BOT:26, LEFT:27, RIGHT:28, ID:29,
+  // v0.5 — new read/write registers (LOOK and SCAN are write from compiler POV)
+  LOOK:30, SCAN:31,
 };
 
 export const REG_NAMES = Object.fromEntries(Object.entries(REG).map(([k, v]) => [v, k]));
 
+/** Interrupt type indices — used in SETINT / SETPARAM bytecode. */
+export const INT_TYPES = {
+  COLLISION:0, WALL:1, DAMAGE:2, SHIELD:3,
+  TOP:4, BOTTOM:5, LEFT:6, RIGHT:7,
+  RADAR:8, RANGE:9, ROBOTS:10, SIGNAL:11, CHRONON:12,
+};
+
+// Register aliases: these source tokens compile to a canonical register's index.
+const REG_ALIASES = {
+  X: 'POSX', Y: 'POSY',
+  ROBOTS: 'TEAMMATES',   // "total alive" — same slot, updated semantics
+  CHRONON: 'TIME',       // elapsed ticks alias
+};
+
 const READ_REGS = new Set([
+  // Original
   'ENERGY','ARMOR','HEAT','RANGE','RADAR',
   'SPEEDX','SPEEDY','POSX','POSY',
   'COLLISION','STUNNED','TEAMMATES','RANDOM','TIME',
+  // v0.5 new sensors
+  'DAMAGE','DOPPLER','TOP','BOT','LEFT','RIGHT','ID',
+  // v0.5 aliases (compile to same index as canonical name)
+  'X','Y','ROBOTS','CHRONON',
 ]);
 
 const WRITE_REGS = new Set([
   'SHIELD','GUNX','GUNY','FIRE',
   'THRUSTX','THRUSTY','BRAKE','BEEP','AIM',
+  // v0.5 write-only state registers
+  'LOOK','SCAN',
 ]);
 
 const SIMPLE_OPS = {
@@ -45,6 +77,12 @@ const SIMPLE_OPS = {
   'DUP':OP.DUP,'POP':OP.POP,'DROP':OP.POP,
   'SWAP':OP.SWAP,'OVER':OP.OVER,'ROT':OP.ROT,
   'RETURN':OP.RETURN,
+  // v0.5 math
+  'SQRT':OP.SQRT, 'DIST':OP.DIST,
+  'SIN':OP.SIN, 'COS':OP.COS, 'TAN':OP.TAN,
+  'ARCTAN':OP.ARCTAN, 'ARCSIN':OP.ARCSIN, 'ARCCOS':OP.ARCCOS,
+  // v0.5 interrupt control (single-word opcodes)
+  'INTON':OP.INTON, 'INTOFF':OP.INTOFF, 'RTI':OP.RTI, 'FLUSHINT':OP.FLUSHINT,
 };
 
 function tokenize(source) {
@@ -96,6 +134,8 @@ function collectLabels(tokens, defines) {
     if (tok === 'IF' || tok === 'ELSE')      { pc += 2; i++; continue; }
     if (tok === 'LOOP' || tok === 'ENDIF')   { i++; continue; }
     if (tok === 'POOL')                       { pc += 2; i++; continue; }
+    // SETINT / SETPARAM: opcode + int-type-index + label/value = 3 words; consumes 3 tokens
+    if (tok === 'SETINT' || tok === 'SETPARAM') { pc += 3; i += 3; continue; }
     if (READ_REGS.has(tok) || WRITE_REGS.has(tok)) { pc += 2; i++; continue; }
     i++;
   }
@@ -189,8 +229,37 @@ function emitBytecode(tokens, defines, labels) {
       i++; continue;
     }
 
+    // SETINT name label  — three tokens, three bytecode words
+    if (tok === 'SETINT') {
+      const intName  = tokens[i + 1];
+      const labelName = tokens[i + 2];
+      const intIdx = INT_TYPES[intName];
+      if (intIdx === undefined) errors.push(`SETINT: unknown interrupt '${intName}'`);
+      let target = -1;
+      if (labelName !== '0' && labelName !== undefined) {
+        const resolved = labels[labelName];
+        if (resolved === undefined) errors.push(`SETINT: unknown label '${labelName}'`);
+        else target = resolved;
+      }
+      push(OP.SETINT, intIdx ?? 0, target);
+      i += 3; continue;
+    }
+
+    // SETPARAM name value  — three tokens, three bytecode words
+    if (tok === 'SETPARAM') {
+      const intName = tokens[i + 1];
+      const valStr  = tokens[i + 2];   // not macro-expanded per spec
+      const intIdx = INT_TYPES[intName];
+      const val = parseInt(valStr, 10);
+      if (intIdx === undefined) errors.push(`SETPARAM: unknown interrupt '${intName}'`);
+      push(OP.SETPARAM, intIdx ?? 0, isNaN(val) ? 0 : val);
+      i += 3; continue;
+    }
+
     if (READ_REGS.has(tok)) {
-      push(OP.RREAD, REG[tok]);
+      // Resolve aliases (X→POSX, ROBOTS→TEAMMATES, etc.) before looking up REG index
+      const regName = REG_ALIASES[tok] || tok;
+      push(OP.RREAD, REG[regName]);
       i++; continue;
     }
 

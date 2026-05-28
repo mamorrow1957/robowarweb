@@ -41,10 +41,19 @@ Robots are programmed in the RoboWar stack language. Key concepts:
 | Concept | Description |
 |---|---|
 | Stack | 32-bit integer stack; all operations push or pop |
-| Registers | Named I/O ports — read sensors (`ENERGY`, `RANGE`, `RADAR`, `ARMOR`, …), write actuators (`FIRE`, `SHIELD`, `THRUSTX`, `THRUSTY`, …) |
+| Registers | Named I/O ports — read sensors (`ENERGY`, `RANGE`, `RADAR`, `ARMOR`, `DOPPLER`, `TOP`/`BOT`/`LEFT`/`RIGHT`, `DAMAGE`, `ID`, `CHRONON`, …), write actuators (`FIRE`, `SHIELD`, `THRUSTX`, `THRUSTY`, `LOOK`, `SCAN`, …) |
 | Variables | 100 numbered slots (`STORE n` / `RECALL n`) with `#DEFINE` aliases |
 | Control flow | `IF / ELSE / ENDIF`, `LOOP / POOL`, `GOTO`, `CALL / RETURN` |
+| Math | `SQRT`, `DIST`, `SIN`, `COS`, `TAN`, `ARCTAN`, `ARCSIN`, `ARCCOS` — trig in degrees, ×1000 scaled |
+| Interrupts | `SETINT name label` / `SETPARAM name value` / `INTON` / `INTOFF` / `RTI` / `FLUSHINT` — event-driven handlers for 13 interrupt types |
 | CPU budget | Hardware-configurable cycles per tick (5–40); programs wrap at end |
+
+**New in v0.5 — key additions:**
+- `DOPPLER` — radial velocity of nearest enemy in `AIM+LOOK` direction (positive = approaching); use to lead shots
+- `LOOK` / `SCAN` — decouple the DOPPLER scan direction and RADAR/RANGE scan direction from the gun aim angle
+- `TOP`, `BOT`, `LEFT`, `RIGHT` — distances to the four arena walls
+- `DAMAGE` — cumulative damage received; `ID` — robot's 0-based index; `CHRONON` — tick counter alias
+- Full interrupt system: react to wall proximity, enemy detection, damage events, and more without polling
 
 See [robowar-spec.md](robowar-spec.md) §3 for the full instruction set and register reference, or download the [Programmer's Guide PDF](public/RoboWar-Programmer-Guide.pdf).
 
@@ -92,7 +101,7 @@ The VM and combat engine run in a Web Worker to keep the UI responsive during fa
 | Game engine | JavaScript (Web Worker) |
 | Storage | localStorage (robot definitions, ELO ratings) |
 | Build tool | Vite |
-| Tests | Playwright (275 tests) |
+| Tests | Playwright (371 tests) |
 
 ## Documentation
 
@@ -104,7 +113,7 @@ The VM and combat engine run in a Web Worker to keep the UI responsive during fa
 ```bash
 npm install
 npm run dev        # starts dev server at http://localhost:5173
-npm test           # runs the full Playwright test suite (275 tests)
+npm test           # runs the full Playwright test suite (371 tests)
 ```
 
 ## Status
