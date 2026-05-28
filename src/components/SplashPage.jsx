@@ -24,19 +24,28 @@ export default function SplashPage({ onEnter }) {
             <span className="splash-btn-icon">⚔</span>
             Enter the Arena
           </button>
-          <a
-            className="splash-btn splash-btn-secondary"
-            href="/programmer-guide.html"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span className="splash-btn-icon">📖</span>
-            Programmer's Guide
-          </a>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+            <a
+              className="splash-btn splash-btn-secondary"
+              href="/programmer-guide.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="splash-btn-icon">📖</span>
+              Programmer's Guide
+            </a>
+            <a
+              href="/programmer-guide.html"
+              download="RoboWar-Programmer-Guide.html"
+              style={{ fontSize: 12, color: 'var(--text-dim)', textDecoration: 'none', opacity: 0.7 }}
+            >
+              ⬇ download
+            </a>
+          </div>
         </div>
 
         <p className="splash-hint">
-          New to RoboWar? Download the guide first — it covers the full instruction set,
+          New to RoboWar? Read the guide first — it covers the full instruction set,
           hardware system, and example programs.
         </p>
 
