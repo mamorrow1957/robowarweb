@@ -20,15 +20,25 @@ export default function Nav({ page, navigate }) {
           {l.label}
         </button>
       ))}
-      <a
-        className="nav-docs-link"
-        href="/programmer-guide.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Programmer's Guide"
-      >
-        📖 Docs
-      </a>
+      <div className="nav-docs-group">
+        <a
+          className="nav-docs-link"
+          href="/programmer-guide.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View Programmer's Guide"
+        >
+          📖 Docs
+        </a>
+        <a
+          className="nav-docs-download"
+          href="/programmer-guide.html"
+          download="RoboWar-Programmer-Guide.html"
+          title="Download Programmer's Guide"
+        >
+          ⬇
+        </a>
+      </div>
     </nav>
   );
 }

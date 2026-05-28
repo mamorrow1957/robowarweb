@@ -66,11 +66,16 @@ body {
 .nav-btn:hover   { background: var(--surface2); color: var(--text); }
 .nav-btn.active  { background: var(--surface2); color: var(--accent); }
 
-.nav-docs-link {
+.nav-docs-group {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.nav-docs-link {
   padding: 5px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 6px 0 0 6px;
+  border-right: none;
   background: transparent;
   color: var(--text-dim);
   font-size: 13px;
@@ -78,6 +83,22 @@ body {
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .nav-docs-link:hover {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: #484f58;
+}
+.nav-docs-download {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-decoration: none;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nav-docs-download:hover {
   background: var(--surface2);
   color: var(--text);
   border-color: #484f58;
