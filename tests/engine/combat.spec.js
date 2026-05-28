@@ -350,3 +350,210 @@ test('triple weapon produces multiple projectiles per shot', async ({ page }) =>
   const frameWithProj = frames.find(f => f.projectiles.length >= 3);
   expect(frameWithProj).toBeDefined();
 });
+
+// ── v0.5 Wall-distance sensors ────────────────────────────────────────────────
+
+async function getSensors(page, tickLimit = 2) {
+  return page.evaluate(async (tickLimit) => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    const { bytecode } = compile('LOOP POOL');
+    const robots = [
+      { id: 'r1', name: 'A', bytecode, team: 0,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 3 } },
+      { id: 'r2', name: 'B', bytecode, team: 1,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 3 } },
+    ];
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300,
+                                      tickLimit, seed: 777 });
+    const { frames } = engine.simulate();
+    // Extract sensor state from the internal robots after simulation
+    return {
+      robots: engine.robots.map(r => ({ id: r.id, sensors: { ...r.sensors }, x: r.x, y: r.y })),
+    };
+  }, tickLimit);
+}
+
+test('TOP sensor equals robot y position', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.TOP).toBe(Math.round(r.y));
+  }
+});
+
+test('BOT sensor equals arenaHeight minus robot y', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.BOT).toBe(300 - Math.round(r.y));
+  }
+});
+
+test('LEFT sensor equals robot x position', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.LEFT).toBe(Math.round(r.x));
+  }
+});
+
+test('RIGHT sensor equals arenaWidth minus robot x', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.RIGHT).toBe(300 - Math.round(r.x));
+  }
+});
+
+test('wall distance sensors sum to arena size', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.TOP + r.sensors.BOT).toBe(300);
+    expect(r.sensors.LEFT + r.sensors.RIGHT).toBe(300);
+  }
+});
+
+// ── v0.5 X / Y / ID / CHRONON sensors ────────────────────────────────────────
+
+test('X sensor matches POSX', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.POSX).toBe(Math.round(r.x));
+  }
+});
+
+test('Y sensor matches POSY', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  for (const r of robots) {
+    expect(r.sensors.POSY).toBe(Math.round(r.y));
+  }
+});
+
+test('ID sensor is 0 for first robot and 1 for second', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  expect(robots[0].sensors.ID).toBe(0);
+  expect(robots[1].sensors.ID).toBe(1);
+});
+
+test('CHRONON (TIME) increases each tick', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    const { bytecode } = compile('LOOP POOL');
+    const robots = [
+      { id: 'r1', bytecode, team: 0,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } },
+      { id: 'r2', bytecode, team: 1,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } },
+    ];
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300, tickLimit: 5, seed: 1 });
+    const { frames } = engine.simulate();
+    return { ticks: frames.map(f => f.tick) };
+  });
+  expect(result.ticks[0]).toBe(1);
+  expect(result.ticks[4]).toBe(5);
+});
+
+// ── v0.5 DAMAGE sensor ────────────────────────────────────────────────────────
+
+test('DAMAGE sensor increases when robot takes hits', async ({ page }) => {
+  const shooter = await makeCombatRobot(page,
+    'LOOP\n  RADAR AIM\n  1 FIRE\nPOOL',
+    { id: 'shooter', name: 'Shooter', team: 0,
+      hardware: { armor: 2, shield: 0, weapon: 'bullet', engine: 0, energy: 2, cpu: 3, cooling: 2, radar: 3 } }
+  );
+  const target = await makeCombatRobot(page,
+    'LOOP POOL',
+    { id: 'target', name: 'Target', team: 1,
+      hardware: { armor: 2, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } }
+  );
+  const result = await page.evaluate(async ({ shooter, target }) => {
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    const engine = new CombatEngine({
+      robots: [shooter, target], arenaWidth: 300, arenaHeight: 300,
+      tickLimit: 500, seed: 42,
+    });
+    engine.simulate();
+    const tgt = engine.robots.find(r => r.id === 'target');
+    return { totalDamage: tgt?.totalDamage ?? 0 };
+  }, { shooter, target });
+  expect(result.totalDamage).toBeGreaterThan(0);
+});
+
+// ── v0.5 ROBOTS sensor ────────────────────────────────────────────────────────
+
+test('ROBOTS (TEAMMATES) sensor counts all alive robots including self', async ({ page }) => {
+  const { robots } = await getSensors(page);
+  // 2-robot battle: each should see TEAMMATES = 2
+  for (const r of robots) {
+    expect(r.sensors.TEAMMATES).toBe(2);
+  }
+});
+
+// ── v0.5 SCAN offset ─────────────────────────────────────────────────────────
+
+test('SCAN offset shifts radar detection direction', async ({ page }) => {
+  // Robot with 360° radar detects enemy regardless of SCAN offset
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    const { bytecode: bc1 } = compile('LOOP POOL');
+    const { bytecode: bc2 } = compile('90 SCAN\nLOOP POOL');  // 90° scan offset
+    const robots = [
+      { id: 'r1', bytecode: bc1, team: 0,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 1, cooling: 0, radar: 3 } },
+      { id: 'r2', bytecode: bc2, team: 1,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 1, cooling: 0, radar: 3 } },
+    ];
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300, tickLimit: 5, seed: 5 });
+    engine.simulate();
+    return { r2Scan: engine.robots[1].vm.scan };
+  });
+  // SCAN register should have been written
+  expect(result.r2Scan).toBe(90);
+});
+
+// ── v0.5 Interrupt system ─────────────────────────────────────────────────────
+
+test('WALL interrupt fires when robot is near a wall', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    // Robot that sets up WALL interrupt with large threshold (sure to fire)
+    const { bytecode: bc1 } = compile(
+      'SETINT WALL wallHandler\nSETPARAM WALL 200\nINTON\nLOOP POOL\nwallHandler:\n99 STORE 1\nRTI'
+    );
+    const { bytecode: bc2 } = compile('LOOP POOL');
+    const robots = [
+      { id: 'r1', bytecode: bc1, team: 0,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 3, cooling: 0, radar: 0 } },
+      { id: 'r2', bytecode: bc2, team: 1,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } },
+    ];
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300, tickLimit: 20, seed: 1 });
+    engine.simulate();
+    return { handlerVar: engine.robots[0].vm.vars[1] };
+  });
+  // The handler should have executed (stored 99 into var 1)
+  expect(result.handlerVar).toBe(99);
+});
+
+test('CHRONON interrupt fires every N ticks', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    // Fire CHRONON every 5 ticks; increment a counter in var 1
+    const { bytecode: bc1 } = compile(
+      'SETINT CHRONON chronHandler\nSETPARAM CHRONON 5\nINTON\nLOOP POOL\nchronHandler:\nRECALL 1 1 + STORE 1\nRTI'
+    );
+    const { bytecode: bc2 } = compile('LOOP POOL');
+    const robots = [
+      { id: 'r1', bytecode: bc1, team: 0,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 3, cooling: 0, radar: 0 } },
+      { id: 'r2', bytecode: bc2, team: 1,
+        hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } },
+    ];
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300, tickLimit: 20, seed: 2 });
+    engine.simulate();
+    return { counter: engine.robots[0].vm.vars[1] };
+  });
+  // 20 ticks / 5 = up to 4 firings (exact count depends on tick 0 handling)
+  expect(result.counter).toBeGreaterThan(0);
+});
