@@ -24,15 +24,15 @@ POOL
 
 ## Features
 
-- **Splash page** — intro screen with links to enter the game or download the Programmer's Guide PDF
-- **Robot editor** — CodeMirror-based editor with syntax highlighting, inline compiler errors, and a live hardware-point budget counter
+- **Splash page** — intro screen with links to enter the game or open the Programmer's Guide
+- **Robot editor** — CodeMirror-based editor with syntax highlighting, opcode autocomplete (Ctrl+Space), inline compiler errors, and a live hardware-point budget counter
+- **Robot import/export** — save and load robots as `.rw` plain-text files from the editor or My Robots list
 - **Hardware builder** — spend a 30-point budget across armor, shields, weapons, engine, energy, CPU, cooling, and radar
 - **Battle viewer** — Canvas 2D arena with play/pause, step-by-step controls, speed modes (10%, 25%, 1×, 5×, 20×, Max), and procedural sound effects (mutable)
 - **Deterministic simulation** — battles run entirely in a Web Worker from a seed + robot definitions; identical inputs always produce identical results
 - **Tournament mode** — round-robin brackets with two modes: Results Only (instant standings) or Watch Matches (replay each match via the battle viewer with Next Match / Skip controls)
-- **Leaderboard** — ELO ratings (K=32, starting at 1200) updated by running rated matches; persisted in localStorage
-- **Robot export** — save robots as `.rw` plain-text files
-- **Programmer's Guide** — downloadable PDF reference covering the full instruction set, hardware tables, and example programs; accessible from the nav bar and splash page
+- **Leaderboard** — ELO ratings (K=32, starting at 1200) with W/L/D columns updated by running rated matches; persisted in localStorage
+- **Programmer's Guide** — full HTML reference at `/programmer-guide.html` covering the instruction set, hardware tables, interrupt system, and example programs; accessible from the nav bar and splash page
 
 ## Programming Language
 
@@ -101,7 +101,7 @@ The VM and combat engine run in a Web Worker to keep the UI responsive during fa
 | Game engine | JavaScript (Web Worker) |
 | Storage | localStorage (robot definitions, ELO ratings) |
 | Build tool | Vite |
-| Tests | Playwright (371 tests) |
+| Tests | Playwright (371 tests, all passing) |
 
 ## Documentation
 
@@ -118,4 +118,15 @@ npm test           # runs the full Playwright test suite (371 tests)
 
 ## Status
 
-v1 complete. All core features are implemented and tested. Planned v2 additions include a Node.js/Express backend for online multiplayer, persistent leaderboards, and robot sharing via link.
+v1.1 complete. All core features are implemented and tested.
+
+**New in v1.1:**
+- Robot `.rw` file import in editor and My Robots list
+- Three new sample robots: WallAvoider, DopplerDuelist, ReactiveShield
+- Visual SCAN/LOOK direction indicators in the arena (dashed cyan/purple lines)
+- W/L/D columns on the leaderboard
+- Opcode and register autocomplete in the code editor (Ctrl+Space)
+- SIGNAL interrupt triggered by writing non-zero to `BEEP`
+- Full HTML Programmer's Guide at `/programmer-guide.html`
+
+Planned v2 additions include a Node.js/Express backend for online multiplayer, persistent leaderboards, and robot sharing via link.
