@@ -2,6 +2,8 @@
 
 A faithful browser-based recreation of the classic 1989 Macintosh game *RoboWar* by Rod McFarland. Write programs in a stack-based assembly language, build robots with configurable hardware, and watch them battle in a 2D arena.
 
+Vibe coded in May 2026 by Michael Morrow using [Claude Code](https://claude.ai/code).
+
 ## What is RoboWar?
 
 RoboWar is a programming game. You don't control your robot in real time — you write a program that runs autonomously during each battle. Programs execute on a stack machine (similar to Forth): push values, read sensor registers, write actuator registers, and use control flow to react to the arena.
@@ -22,13 +24,15 @@ POOL
 
 ## Features
 
-- **Robot editor** — CodeMirror-based editor with syntax highlighting, inline compiler errors, and opcode autocomplete
+- **Splash page** — intro screen with links to enter the game or download the Programmer's Guide PDF
+- **Robot editor** — CodeMirror-based editor with syntax highlighting, inline compiler errors, and a live hardware-point budget counter
 - **Hardware builder** — spend a 30-point budget across armor, shields, weapons, engine, energy, CPU, cooling, and radar
-- **Battle viewer** — Canvas 2D arena with play/pause, step-by-step, and speed controls (1×–Max)
-- **Deterministic replays** — battles re-simulate from a seed + robot definitions; share any battle as a link
-- **Tournament mode** — round robin, single elimination, or double elimination brackets with ELO ratings
-- **Leaderboard** — global ELO rankings with per-weapon filters
-- **Robot sharing** — export/import `.rw` text files or share via link; guest mode requires no account
+- **Battle viewer** — Canvas 2D arena with play/pause, step-by-step controls, and speed modes (10%, 25%, 1×, 5×, 20×, Max)
+- **Deterministic simulation** — battles run entirely in a Web Worker from a seed + robot definitions; identical inputs always produce identical results
+- **Tournament mode** — round-robin brackets with per-match results and final standings
+- **Leaderboard** — ELO ratings (K=32, starting at 1200) updated by running rated matches; persisted in localStorage
+- **Robot export** — save robots as `.rw` plain-text files
+- **Programmer's Guide** — downloadable PDF reference covering the full instruction set, hardware tables, and example programs; accessible from the nav bar and splash page
 
 ## Programming Language
 
@@ -42,7 +46,7 @@ Robots are programmed in the RoboWar stack language. Key concepts:
 | Control flow | `IF / ELSE / ENDIF`, `LOOP / POOL`, `GOTO`, `CALL / RETURN` |
 | CPU budget | Hardware-configurable cycles per tick (5–40); programs wrap at end |
 
-See [robowar-spec.md](robowar-spec.md) §3 for the full instruction set and register reference.
+See [robowar-spec.md](robowar-spec.md) §3 for the full instruction set and register reference, or download the [Programmer's Guide PDF](public/RoboWar-Programmer-Guide.pdf).
 
 ## Hardware System
 
@@ -61,17 +65,21 @@ Each robot has a **30 hardware-point budget** split across eight components:
 
 ## Architecture
 
+All game logic runs entirely in the browser — no backend required.
+
 ```
 Browser
-  Robot Editor (CodeMirror)
-  Battle Viewer (Canvas 2D)
-  Tournament Browser (React)
-        │
+  ├── Splash Page (React)
+  ├── Robot Editor (CodeMirror + React)
+  ├── Battle Viewer (Canvas 2D + React)
+  ├── Tournament Browser (React)
+  └── Leaderboard (React)
+          │
   Game Engine (Web Worker)
-    Compiler → VM → Combat Engine → Renderer
-        │
-Backend (Node.js / Express + PostgreSQL)
-  Auth · Robot storage · Matchmaking · Leaderboards
+    Compiler → VM Scheduler → Combat Engine
+          │
+  localStorage
+    Robot definitions · ELO ratings
 ```
 
 The VM and combat engine run in a Web Worker to keep the UI responsive during fast-forward and simulation.
@@ -80,17 +88,25 @@ The VM and combat engine run in a Web Worker to keep the UI responsive during fa
 
 | Layer | Technology |
 |---|---|
-| Frontend | React, HTML5 Canvas, CodeMirror |
+| Frontend | React 18, HTML5 Canvas, CodeMirror 6 |
 | Game engine | JavaScript (Web Worker) |
-| Backend | Node.js, Express |
-| Database | PostgreSQL |
-| Auth | JWT (httpOnly cookie) + optional GitHub OAuth |
-| Realtime (v2) | Socket.io |
+| Storage | localStorage (robot definitions, ELO ratings) |
+| Build tool | Vite |
+| Tests | Playwright (265 tests) |
 
 ## Documentation
 
-- [robowar-spec.md](robowar-spec.md) — full game specification covering the language, hardware, combat engine, UI, networking, and data formats
+- [robowar-spec.md](robowar-spec.md) — full game specification: language reference, hardware system, combat engine, UI, data formats, and test structure
+- [RoboWar-Programmer-Guide.pdf](public/RoboWar-Programmer-Guide.pdf) — printable quick-reference guide for robot programmers
+
+## Running Locally
+
+```bash
+npm install
+npm run dev        # starts dev server at http://localhost:5173
+npm test           # runs the full Playwright test suite (265 tests)
+```
 
 ## Status
 
-Early development. See the spec for open design questions before implementation begins.
+v1 complete. All core features are implemented and tested. Planned v2 additions include a Node.js/Express backend for online multiplayer, persistent leaderboards, and robot sharing via link.
