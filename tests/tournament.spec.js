@@ -198,13 +198,13 @@ test('skip to results shows standings', async ({ page }) => {
   await expect(page.locator('.lb-table').first()).toBeVisible();
 });
 
-test('watch mode exit button advances to next match', async ({ page }) => {
+test('watch mode skip button advances to next match', async ({ page }) => {
   await startWatchTournament(page);
-  // Get the current exit button label (should say "Next Match (2/3) →" or "🏆 View Results")
+  // The exit button says "Skip Match →" when more matches remain
   const exitBtn = page.locator('.battle-layout .page-header button').last();
   const label = await exitBtn.textContent();
-  // If there are multiple matches, clicking advances
-  if (label && label.includes('Next Match')) {
+  // With 3 robots there are 3 matches; first one shows "Skip Match →"
+  if (label && label.includes('Skip Match')) {
     await exitBtn.click();
     await page.waitForSelector('canvas', { timeout: 15000 });
     await expect(page.locator('.page-title')).toContainText('Match 2');

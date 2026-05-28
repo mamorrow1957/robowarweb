@@ -10,11 +10,13 @@ const SPEEDS = [0.1, 0.25, 1, 5, 20, 'max'];
 export default function BattleViewer({
   config,
   navigate,
-  title       = 'Battle',
-  exitLabel   = '← New Battle',
-  onExit      = null,
-  skipLabel   = null,
-  onSkip      = null,
+  title        = 'Battle',
+  exitLabel    = '← New Battle',
+  onExit       = null,
+  skipLabel    = null,
+  onSkip       = null,
+  autoPlay     = false,   // start playing as soon as frames arrive
+  autoAdvance  = false,   // call onExit automatically 1.5 s after battle ends
 }) {
   const [frames, setFrames]           = useState([]);
   const [currentTick, setCurrentTick] = useState(0);
@@ -25,54 +27,34 @@ export default function BattleViewer({
   const [result, setResult]           = useState(null);
   const [muted, setMuted]             = useState(() => getMuted());
 
-  const framesRef   = useRef([]);
-  const playingRef  = useRef(false);
-  const speedRef    = useRef(1);
-  const rafRef      = useRef(null);
-  const accumRef    = useRef(0);
-  const prevFrameRef = useRef(null);
-  const lastFireRef  = useRef(0); // timestamp of last fire sound
+  const framesRef          = useRef([]);
+  const playingRef         = useRef(false);
+  const speedRef           = useRef(1);
+  const rafRef             = useRef(null);
+  const accumRef           = useRef(0);
+  const prevFrameRef       = useRef(null);
+  const lastFireRef        = useRef(0);
+  const naturalEndRef      = useRef(false);   // true when playback reached last frame on its own
+  const autoAdvanceTimer   = useRef(null);
+  const onExitRef          = useRef(onExit);  // always up-to-date, avoids stale closure
+  onExitRef.current = onExit;
 
-  // Sync refs
+  // Sync speed ref
   useEffect(() => { speedRef.current = speed; }, [speed]);
 
-  // Load worker
-  useEffect(() => {
-    if (!config) return;
-    setLoading(true);
-    setFrames([]);
-    setCurrentTick(0);
-    setResult(null);
-    setError(null);
-    prevFrameRef.current = null;
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-    const worker = new Worker(
-      new URL('../../engine/worker.js', import.meta.url),
-      { type: 'module' }
-    );
+  /** Cancel any pending auto-advance and reset the natural-end flag. */
+  function cancelAutoAdvance() {
+    naturalEndRef.current = false;
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current);
+      autoAdvanceTimer.current = null;
+    }
+  }
 
-    worker.onmessage = (e) => {
-      if (e.data.type === 'BATTLE_COMPLETE') {
-        framesRef.current = e.data.frames;
-        setFrames(e.data.frames);
-        setResult(e.data.result);
-        setLoading(false);
-      } else if (e.data.type === 'COMPILE_ERROR') {
-        setError('Compile error:\n' + e.data.errors.join('\n'));
-        setLoading(false);
-      } else if (e.data.type === 'ERROR') {
-        setError(e.data.message);
-        setLoading(false);
-      }
-    };
+  // ── Animation loop ────────────────────────────────────────────────────────
 
-    worker.onerror = (e) => { setError(e.message); setLoading(false); };
-    worker.postMessage({ type: 'RUN_BATTLE', config });
-
-    return () => worker.terminate();
-  }, [config]);
-
-  // Animation loop
   const animate = useCallback(() => {
     if (!playingRef.current) return;
     const total = framesRef.current.length;
@@ -95,6 +77,7 @@ export default function BattleViewer({
       if (next >= total - 1) {
         playingRef.current = false;
         setPlaying(false);
+        naturalEndRef.current = true; // battle finished playing naturally
       }
       return next;
     });
@@ -104,8 +87,23 @@ export default function BattleViewer({
     }
   }, []);
 
+  // ── Auto-advance: schedule onExit after natural playback end ─────────────
+
+  useEffect(() => {
+    if (!playing && naturalEndRef.current && autoAdvance && onExitRef.current) {
+      naturalEndRef.current = false;
+      autoAdvanceTimer.current = setTimeout(() => {
+        autoAdvanceTimer.current = null;
+        onExitRef.current?.();
+      }, 1500);
+    }
+  }, [playing, autoAdvance]);
+
+  // ── Playback controls ─────────────────────────────────────────────────────
+
   function play() {
     if (framesRef.current.length === 0) return;
+    cancelAutoAdvance();
     if (currentTick >= framesRef.current.length - 1) {
       setCurrentTick(0);
     }
@@ -116,12 +114,14 @@ export default function BattleViewer({
   }
 
   function pause() {
+    cancelAutoAdvance();
     playingRef.current = false;
     setPlaying(false);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }
 
   function stepBy(delta) {
+    cancelAutoAdvance();
     pause();
     setCurrentTick(prev =>
       Math.max(0, Math.min(prev + delta, framesRef.current.length - 1))
@@ -129,6 +129,7 @@ export default function BattleViewer({
   }
 
   function jumpTo(tick) {
+    cancelAutoAdvance();
     pause();
     setCurrentTick(Math.max(0, Math.min(tick, framesRef.current.length - 1)));
   }
@@ -139,11 +140,67 @@ export default function BattleViewer({
     soundSetMuted(next);
   }
 
+  // ── Load worker ───────────────────────────────────────────────────────────
+
   useEffect(() => {
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    if (!config) return;
+    cancelAutoAdvance();
+    setLoading(true);
+    setFrames([]);
+    setCurrentTick(0);
+    setResult(null);
+    setError(null);
+    prevFrameRef.current = null;
+
+    const worker = new Worker(
+      new URL('../../engine/worker.js', import.meta.url),
+      { type: 'module' }
+    );
+
+    worker.onmessage = (e) => {
+      if (e.data.type === 'BATTLE_COMPLETE') {
+        framesRef.current = e.data.frames;
+        setFrames(e.data.frames);
+        setResult(e.data.result);
+        setLoading(false);
+        // Auto-play: start playback shortly after frames arrive
+        if (autoPlay && e.data.frames.length > 0) {
+          setTimeout(() => {
+            if (framesRef.current.length > 0) {
+              accumRef.current = 0;
+              naturalEndRef.current = false;
+              playingRef.current = true;
+              setPlaying(true);
+              rafRef.current = requestAnimationFrame(animate);
+            }
+          }, 100);
+        }
+      } else if (e.data.type === 'COMPILE_ERROR') {
+        setError('Compile error:\n' + e.data.errors.join('\n'));
+        setLoading(false);
+      } else if (e.data.type === 'ERROR') {
+        setError(e.data.message);
+        setLoading(false);
+      }
+    };
+
+    worker.onerror = (e) => { setError(e.message); setLoading(false); };
+    worker.postMessage({ type: 'RUN_BATTLE', config });
+
+    return () => worker.terminate();
+  }, [config, autoPlay, animate]);
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      cancelAutoAdvance();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, []);
 
-  // Keyboard shortcuts
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+
   useEffect(() => {
     function onKey(e) {
       if (e.target.tagName === 'INPUT') return;
@@ -162,12 +219,12 @@ export default function BattleViewer({
     return () => window.removeEventListener('keydown', onKey);
   }, [playing, muted]);
 
-  // Sound detection — fires whenever the displayed frame changes
+  // ── Sound detection ───────────────────────────────────────────────────────
+
   const frame = frames[currentTick] || null;
 
   useEffect(() => {
     const spd = speedRef.current;
-    // Only play sounds at slow/normal speeds
     if (!frame || spd === 'max' || spd > 1) {
       prevFrameRef.current = frame;
       return;
@@ -193,10 +250,7 @@ export default function BattleViewer({
         if (!robot.alive) continue;
         const prevRobot = prev.robots.find(r => r.id === robot.id);
         if (prevRobot && prevRobot.alive && robot.armor < prevRobot.armor - 0.5) {
-          if (!hitPlayed) {
-            playHit();
-            hitPlayed = true;
-          }
+          if (!hitPlayed) { playHit(); hitPlayed = true; }
         }
       }
 
@@ -204,19 +258,17 @@ export default function BattleViewer({
       for (const robot of frame.robots) {
         if (robot.alive) continue;
         const prevRobot = prev.robots.find(r => r.id === robot.id);
-        if (prevRobot?.alive) {
-          playExplosion();
-        }
+        if (prevRobot?.alive) playExplosion();
       }
 
       // Victory: result appeared for first time
-      if (frame.result && !prev.result) {
-        playVictory();
-      }
+      if (frame.result && !prev.result) playVictory();
     }
 
     prevFrameRef.current = frame;
   }, [frame]);
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   const total = frames.length;
   const handleExit = onExit || (() => navigate('battle-setup'));

@@ -143,10 +143,12 @@ export default function TournamentBrowser({ navigate }) {
         config={cfg}
         navigate={navigate}
         title={`Tournament — ${matchTitle}`}
-        exitLabel={isLast ? '🏆 View Results' : `Next Match (${matchIndex + 2}/${matchConfigs.length}) →`}
+        exitLabel={isLast ? '🏆 View Results' : 'Skip Match →'}
         onExit={handleMatchExit}
         skipLabel="Skip to Results"
         onSkip={skipToResults}
+        autoPlay={true}
+        autoAdvance={true}
       />
     );
   }
