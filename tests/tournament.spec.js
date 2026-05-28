@@ -138,3 +138,75 @@ test('wins in standings are numeric', async ({ page }) => {
     expect(Number.isInteger(Number(w))).toBe(true);
   }
 });
+
+// ── Mode toggle ───────────────────────────────────────────────────────────────
+
+test('tournament shows mode toggle buttons', async ({ page }) => {
+  await navTo(page, 'Tournament');
+  await expect(page.locator('.tourn-mode-toggle')).toBeVisible();
+  await expect(page.locator('.tourn-mode-btn', { hasText: /Results Only/ })).toBeVisible();
+  await expect(page.locator('.tourn-mode-btn', { hasText: /Watch Matches/ })).toBeVisible();
+});
+
+test('Results Only mode is active by default', async ({ page }) => {
+  await navTo(page, 'Tournament');
+  await expect(page.locator('.tourn-mode-btn', { hasText: /Results Only/ })).toHaveClass(/active/);
+  await expect(page.locator('.tourn-mode-btn', { hasText: /Watch Matches/ })).not.toHaveClass(/active/);
+});
+
+test('clicking Watch Matches activates that mode', async ({ page }) => {
+  await navTo(page, 'Tournament');
+  await page.locator('.tourn-mode-btn', { hasText: /Watch Matches/ }).click();
+  await expect(page.locator('.tourn-mode-btn', { hasText: /Watch Matches/ })).toHaveClass(/active/);
+  await expect(page.locator('.tourn-mode-btn', { hasText: /Results Only/ })).not.toHaveClass(/active/);
+});
+
+// ── Watch mode ────────────────────────────────────────────────────────────────
+
+async function startWatchTournament(page) {
+  await navTo(page, 'Tournament');
+  await page.locator('.tourn-mode-btn', { hasText: /Watch Matches/ }).click();
+  const rows = page.locator('.robot-check-row');
+  const count = await rows.count();
+  for (let i = 0; i < count; i++) {
+    await rows.nth(i).click();
+  }
+  await page.locator('button', { hasText: /Round Robin/ }).click();
+  // Wait for BattleViewer to appear
+  await page.waitForSelector('canvas', { timeout: 30000 });
+}
+
+test('watch mode shows BattleViewer for first match', async ({ page }) => {
+  await startWatchTournament(page);
+  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.locator('.page-title')).toContainText('Tournament');
+});
+
+test('watch mode shows match counter in title', async ({ page }) => {
+  await startWatchTournament(page);
+  await expect(page.locator('.page-title')).toContainText('Match 1');
+});
+
+test('watch mode shows skip to results button', async ({ page }) => {
+  await startWatchTournament(page);
+  await expect(page.locator('button', { hasText: /Skip to Results/ })).toBeVisible();
+});
+
+test('skip to results shows standings', async ({ page }) => {
+  await startWatchTournament(page);
+  await page.locator('button', { hasText: /Skip to Results/ }).click();
+  await expect(page.locator('.lb-table').first()).toBeVisible();
+});
+
+test('watch mode exit button advances to next match', async ({ page }) => {
+  await startWatchTournament(page);
+  // Get the current exit button label (should say "Next Match (2/3) →" or "🏆 View Results")
+  const exitBtn = page.locator('.battle-layout .page-header button').last();
+  const label = await exitBtn.textContent();
+  // If there are multiple matches, clicking advances
+  if (label && label.includes('Next Match')) {
+    await exitBtn.click();
+    await page.waitForSelector('canvas', { timeout: 15000 });
+    await expect(page.locator('.page-title')).toContainText('Match 2');
+  }
+});

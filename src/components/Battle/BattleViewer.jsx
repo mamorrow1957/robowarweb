@@ -1,22 +1,37 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ArenaCanvas from './ArenaCanvas.jsx';
+import {
+  getMuted, setMuted as soundSetMuted,
+  playFire, playHit, playExplosion, playVictory,
+} from '../../engine/sound.js';
 
 const SPEEDS = [0.1, 0.25, 1, 5, 20, 'max'];
 
-export default function BattleViewer({ config, navigate }) {
-  const [frames, setFrames]       = useState([]);
+export default function BattleViewer({
+  config,
+  navigate,
+  title       = 'Battle',
+  exitLabel   = '← New Battle',
+  onExit      = null,
+  skipLabel   = null,
+  onSkip      = null,
+}) {
+  const [frames, setFrames]           = useState([]);
   const [currentTick, setCurrentTick] = useState(0);
-  const [playing, setPlaying]     = useState(false);
-  const [speed, setSpeed]         = useState(1);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
-  const [result, setResult]       = useState(null);
+  const [playing, setPlaying]         = useState(false);
+  const [speed, setSpeed]             = useState(1);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState(null);
+  const [result, setResult]           = useState(null);
+  const [muted, setMuted]             = useState(() => getMuted());
 
   const framesRef   = useRef([]);
   const playingRef  = useRef(false);
   const speedRef    = useRef(1);
   const rafRef      = useRef(null);
   const accumRef    = useRef(0);
+  const prevFrameRef = useRef(null);
+  const lastFireRef  = useRef(0); // timestamp of last fire sound
 
   // Sync refs
   useEffect(() => { speedRef.current = speed; }, [speed]);
@@ -29,6 +44,7 @@ export default function BattleViewer({ config, navigate }) {
     setCurrentTick(0);
     setResult(null);
     setError(null);
+    prevFrameRef.current = null;
 
     const worker = new Worker(
       new URL('../../engine/worker.js', import.meta.url),
@@ -117,6 +133,12 @@ export default function BattleViewer({ config, navigate }) {
     setCurrentTick(Math.max(0, Math.min(tick, framesRef.current.length - 1)));
   }
 
+  function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    soundSetMuted(next);
+  }
+
   useEffect(() => {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, []);
@@ -134,19 +156,81 @@ export default function BattleViewer({ config, navigate }) {
       if (e.key === '4') setSpeed(5);
       if (e.key === '5') setSpeed(20);
       if (e.key === '6') setSpeed('max');
+      if (e.key === 'm') toggleMute();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [playing]);
+  }, [playing, muted]);
 
+  // Sound detection — fires whenever the displayed frame changes
   const frame = frames[currentTick] || null;
+
+  useEffect(() => {
+    const spd = speedRef.current;
+    // Only play sounds at slow/normal speeds
+    if (!frame || spd === 'max' || spd > 1) {
+      prevFrameRef.current = frame;
+      return;
+    }
+
+    const prev = prevFrameRef.current;
+    if (prev) {
+      // Fire: new alive projectiles appeared
+      const prevCount = prev.projectiles.filter(p => p.alive).length;
+      const curCount  = frame.projectiles.filter(p => p.alive).length;
+      if (curCount > prevCount) {
+        const now = Date.now();
+        if (now - lastFireRef.current > 180) {
+          const newProj = frame.projectiles.find(p => p.alive);
+          playFire(newProj?.type || 'bullet');
+          lastFireRef.current = now;
+        }
+      }
+
+      // Hit: any alive robot lost armor
+      let hitPlayed = false;
+      for (const robot of frame.robots) {
+        if (!robot.alive) continue;
+        const prevRobot = prev.robots.find(r => r.id === robot.id);
+        if (prevRobot && prevRobot.alive && robot.armor < prevRobot.armor - 0.5) {
+          if (!hitPlayed) {
+            playHit();
+            hitPlayed = true;
+          }
+        }
+      }
+
+      // Explosion: robot went alive → dead
+      for (const robot of frame.robots) {
+        if (robot.alive) continue;
+        const prevRobot = prev.robots.find(r => r.id === robot.id);
+        if (prevRobot?.alive) {
+          playExplosion();
+        }
+      }
+
+      // Victory: result appeared for first time
+      if (frame.result && !prev.result) {
+        playVictory();
+      }
+    }
+
+    prevFrameRef.current = frame;
+  }, [frame]);
+
   const total = frames.length;
+  const handleExit = onExit || (() => navigate('battle-setup'));
 
   return (
     <div className="battle-layout">
       <div className="page-header">
-        <h1 className="page-title">Battle</h1>
-        <button className="btn" onClick={() => navigate('battle-setup')}>← New Battle</button>
+        <h1 className="page-title">{title}</h1>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {skipLabel && onSkip && (
+            <button className="btn" onClick={onSkip}>{skipLabel}</button>
+          )}
+          <button className="btn" onClick={handleExit}>{exitLabel}</button>
+        </div>
       </div>
 
       {loading && (
@@ -199,6 +283,14 @@ export default function BattleViewer({ config, navigate }) {
                 </button>
               ))}
             </div>
+
+            <button
+              className={`mute-btn${muted ? ' muted' : ''}`}
+              onClick={toggleMute}
+              title={muted ? 'Unmute (M)' : 'Mute (M)'}
+            >
+              {muted ? '🔇' : '🔊'}
+            </button>
 
             {result && (
               <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 600 }}>
