@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ArenaCanvas from './ArenaCanvas.jsx';
 import {
-  getMuted, setMuted as soundSetMuted,
+  getMuted, setMuted as soundSetMuted, unlockAudio,
   playFire, playHit, playExplosion, playVictory,
 } from '../../engine/sound.js';
 
@@ -103,6 +103,7 @@ export default function BattleViewer({
 
   function play() {
     if (framesRef.current.length === 0) return;
+    unlockAudio(); // ensure AudioContext is running after this user gesture
     cancelAutoAdvance();
     if (currentTick >= framesRef.current.length - 1) {
       setCurrentTick(0);
@@ -135,6 +136,7 @@ export default function BattleViewer({
   }
 
   function toggleMute() {
+    unlockAudio(); // clicking mute is also a valid gesture to unlock audio
     const next = !muted;
     setMuted(next);
     soundSetMuted(next);
