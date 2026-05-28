@@ -13,7 +13,7 @@ const DEFAULT_INT_PARAMS = [
   600,  // 8: RADAR      — nearest enemy ≤ 600 px  (2×300 default arena)
   600,  // 9: RANGE      — nearest in scan dir ≤ 600 px
   6,    // 10: ROBOTS    — fewer than 6 alive
-  0,    // 11: SIGNAL    — disabled (BEEP signalling not yet implemented)
+  0,    // 11: SIGNAL    — triggered externally when a teammate writes non-zero to BEEP
   0,    // 12: CHRONON   — disabled (0 = off)
 ];
 
