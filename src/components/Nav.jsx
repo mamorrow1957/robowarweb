@@ -32,9 +32,9 @@ export default function Nav({ page, navigate }) {
         </a>
         <a
           className="nav-docs-download"
-          href="/programmer-guide.html"
-          download="RoboWar-Programmer-Guide.html"
-          title="Download Programmer's Guide"
+          href="/RoboWar-Programmer-Guide.pdf"
+          download="RoboWar-Programmer-Guide.pdf"
+          title="Download Programmer's Guide (PDF)"
         >
           ⬇
         </a>
