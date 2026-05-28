@@ -540,7 +540,19 @@ Split into two panels:
 
 Sounds only play at speeds ≤ 1×. Mute state persists in `localStorage` under key `robowar_muted`.
 
-The viewer also accepts `exitLabel`/`onExit`/`skipLabel`/`onSkip` props for embedding inside the tournament watch mode.
+**Embedding props** (used by tournament watch mode):
+
+| Prop | Default | Description |
+|---|---|---|
+| `title` | `'Battle'` | Page title shown in the header |
+| `exitLabel` | `'← New Battle'` | Label for the header exit button |
+| `onExit` | `navigate('battle-setup')` | Called when the exit button is clicked |
+| `skipLabel` | — | If set, shows a secondary button with this label |
+| `onSkip` | — | Called when the secondary button is clicked |
+| `autoPlay` | `false` | Start playing automatically when frames arrive |
+| `autoAdvance` | `false` | Call `onExit` automatically 1.5 s after playback ends naturally |
+
+When `autoAdvance` is true the timer is cancelled if the user manually pauses, steps, or jumps, preserving full manual control.
 
 ### 6.6 Tournament Mode
 
@@ -556,11 +568,15 @@ Round-robin only. All matches simulate synchronously on the main thread (no Web 
 **Watch Matches flow:**
 
 1. Select robots, switch to Watch Matches, click **Run Round Robin**
-2. All matches are pre-simulated (standings computed); the viewer opens for Match 1
+2. All matches are pre-simulated (standings computed); the viewer opens for Match 1 and **begins playing automatically**
 3. Page title shows `Tournament — Match N of M: A vs B`
-4. Exit button shows **Next Match (N+1/M) →** or **🏆 View Results** on the last match
-5. **Skip to Results** button available at any point to jump directly to standings
-6. After all matches (or on skip), the standings and match results tables are shown with a **← New Tournament** button
+4. When playback finishes, the next match loads and plays automatically after a **1.5 s pause** (so the result banner is visible)
+5. Header buttons available during each match:
+   - **Skip Match →** — immediately advance to the next match (last match shows **🏆 View Results**)
+   - **Skip to Results** — jump directly to the standings screen at any time
+6. After all matches complete (or on skip), the standings and match results tables are shown with a **← New Tournament** button
+
+The viewer's standard controls (pause, step, speed, mute) remain fully functional during watch mode — the user can pause, scrub, or change speed freely; the auto-advance timer is cancelled whenever the user interacts manually.
 
 **v2 (not yet implemented):** Single elimination, double elimination, server-side simulation for large brackets.
 
