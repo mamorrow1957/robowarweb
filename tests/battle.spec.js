@@ -194,3 +194,20 @@ test('step forward button advances tick', async ({ page }) => {
   const tickAfter = await page.locator('.tick-display').textContent();
   expect(tickAfter).not.toBe(tickBefore);
 });
+
+test('battle viewer shows mute button', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await expect(page.locator('.mute-btn')).toBeVisible();
+});
+
+test('mute button toggles muted state', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  const btn = page.locator('.mute-btn');
+  await expect(btn).not.toHaveClass(/muted/);
+  await btn.click();
+  await expect(btn).toHaveClass(/muted/);
+  await btn.click();
+  await expect(btn).not.toHaveClass(/muted/);
+});

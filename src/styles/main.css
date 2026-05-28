@@ -271,6 +271,20 @@ body {
 }
 .speed-btn.active { border-color: var(--accent); color: var(--accent); }
 
+.mute-btn {
+  padding: 3px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: background 0.15s, border-color 0.15s;
+}
+.mute-btn:hover { background: #2d333b; border-color: #484f58; }
+.mute-btn.muted { border-color: var(--red); color: var(--red); }
+
 .robot-stats {
   display: flex; gap: 12px; flex-wrap: wrap;
 }
@@ -296,6 +310,37 @@ body {
 /* ── Tournament ─────────────────────────── */
 .tournament-page { max-width: 700px; }
 .empty-state { color: var(--text-dim); text-align: center; padding: 40px 0; }
+
+.tourn-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tourn-mode-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.tourn-mode-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.tourn-mode-btn {
+  padding: 5px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tourn-mode-btn:hover { background: #2d333b; color: var(--text); border-color: #484f58; }
+.tourn-mode-btn.active { border-color: var(--accent); color: var(--accent); background: #0d1b2a; }
 
 /* ── Leaderboard ────────────────────────── */
 .lb-table { width: 100%; border-collapse: collapse; }
