@@ -27,9 +27,9 @@ POOL
 - **Splash page** — intro screen with links to enter the game or download the Programmer's Guide PDF
 - **Robot editor** — CodeMirror-based editor with syntax highlighting, inline compiler errors, and a live hardware-point budget counter
 - **Hardware builder** — spend a 30-point budget across armor, shields, weapons, engine, energy, CPU, cooling, and radar
-- **Battle viewer** — Canvas 2D arena with play/pause, step-by-step controls, and speed modes (10%, 25%, 1×, 5×, 20×, Max)
+- **Battle viewer** — Canvas 2D arena with play/pause, step-by-step controls, speed modes (10%, 25%, 1×, 5×, 20×, Max), and procedural sound effects (mutable)
 - **Deterministic simulation** — battles run entirely in a Web Worker from a seed + robot definitions; identical inputs always produce identical results
-- **Tournament mode** — round-robin brackets with per-match results and final standings
+- **Tournament mode** — round-robin brackets with two modes: Results Only (instant standings) or Watch Matches (replay each match via the battle viewer with Next Match / Skip controls)
 - **Leaderboard** — ELO ratings (K=32, starting at 1200) updated by running rated matches; persisted in localStorage
 - **Robot export** — save robots as `.rw` plain-text files
 - **Programmer's Guide** — downloadable PDF reference covering the full instruction set, hardware tables, and example programs; accessible from the nav bar and splash page
@@ -92,7 +92,7 @@ The VM and combat engine run in a Web Worker to keep the UI responsive during fa
 | Game engine | JavaScript (Web Worker) |
 | Storage | localStorage (robot definitions, ELO ratings) |
 | Build tool | Vite |
-| Tests | Playwright (265 tests) |
+| Tests | Playwright (275 tests) |
 
 ## Documentation
 
@@ -104,7 +104,7 @@ The VM and combat engine run in a Web Worker to keep the UI responsive during fa
 ```bash
 npm install
 npm run dev        # starts dev server at http://localhost:5173
-npm test           # runs the full Playwright test suite (265 tests)
+npm test           # runs the full Playwright test suite (275 tests)
 ```
 
 ## Status

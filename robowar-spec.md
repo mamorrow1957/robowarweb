@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.3 (splash page, slow-motion speeds, nav Docs link, test structure)
+**Version:** 0.4 (battle sounds, tournament watch mode)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -524,10 +524,43 @@ Split into two panels:
 | Step back 1 tick | ← |
 | Jump to start / end | ⏮ / ⏭ buttons |
 | Speed 10% / 25% / 1× / 5× / 20× / Max | 1 / 2 / 3 / 4 / 5 / 6 |
+| Toggle mute | M |
+
+**Sound effects** (Web Audio API, procedural — no audio files):
+
+| Event | Sound |
+|---|---|
+| Bullet fired | Short square-wave tone |
+| Missile fired | Sawtooth glide + noise burst |
+| Drone fired | Sine chorus |
+| Triple shot fired | Three simultaneous tones |
+| Hit (armor decreased) | Noise burst + low thud |
+| Explosion (robot destroyed) | Long noise + deep tones |
+| Victory | Ascending C–E–G–C arpeggio |
+
+Sounds only play at speeds ≤ 1×. Mute state persists in `localStorage` under key `robowar_muted`.
+
+The viewer also accepts `exitLabel`/`onExit`/`skipLabel`/`onSkip` props for embedding inside the tournament watch mode.
 
 ### 6.6 Tournament Mode
 
-**Implemented in v1:** Round-robin only. All matches simulate synchronously on the main thread (no Web Worker). Results include per-match winners and a final standings table sorted by win count.
+Round-robin only. All matches simulate synchronously on the main thread (no Web Worker). Results include per-match winners and a final standings table sorted by win count.
+
+**Mode toggle** (shown in the setup card before running):
+
+| Mode | Behaviour |
+|---|---|
+| 📊 Results Only | Pre-simulates all matches and displays standings immediately |
+| 👁 Watch Matches | Pre-simulates all matches for standings, then replays each match via the inline Battle Viewer |
+
+**Watch Matches flow:**
+
+1. Select robots, switch to Watch Matches, click **Run Round Robin**
+2. All matches are pre-simulated (standings computed); the viewer opens for Match 1
+3. Page title shows `Tournament — Match N of M: A vs B`
+4. Exit button shows **Next Match (N+1/M) →** or **🏆 View Results** on the last match
+5. **Skip to Results** button available at any point to jump directly to standings
+6. After all matches (or on skip), the standings and match results tables are shown with a **← New Tournament** button
 
 **v2 (not yet implemented):** Single elimination, double elimination, server-side simulation for large brackets.
 
@@ -703,18 +736,18 @@ tests/
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (265 total)
+### 9.3 Test Counts (275 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
-| `battle.spec.js` | 27 | Battle setup UI, viewer controls, speed buttons, robot stats |
+| `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
 | `editor.spec.js` | 22 | Hardware panel, code editor, save/compile, error display |
 | `engine/compiler.spec.js` | 64 | All opcodes, labels, #DEFINE macros, error cases |
 | `engine/vm.spec.js` | 59 | Stack operations, arithmetic, control flow, registers |
 | `engine/combat.spec.js` | 23 | Spawn, physics, projectiles, damage, shield, win conditions |
 | `leaderboard.spec.js` | 16 | ELO display, rated matches, column layout |
-| `tournament.spec.js` | 18 | Robot selection, round-robin results, standings table |
+| `tournament.spec.js` | 26 | Robot selection, round-robin, standings, mode toggle, watch mode flow |
 | `robots.spec.js` | 12 | Robot list CRUD, color dot, editor navigation |
 
 ### 9.4 Shared Helpers (`tests/helpers.js`)
