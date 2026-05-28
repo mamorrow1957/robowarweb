@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.4 (battle sounds, tournament watch mode)
+**Version:** 0.5 (DOPPLER, LOOK/SCAN, wall registers, CHRONON, interrupts, trig opcodes)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -10,7 +10,7 @@
 
 1. [Overview](#1-overview)
 2. [Architecture](#2-architecture)
-3. [Robot Programming Language](#3-robot-programming-language)
+3. [Robot Programming Language](#3-robot-programming-language) — registers, instructions, DOPPLER, LOOK/SCAN, wall distances, trig, interrupts
 4. [Hardware System](#4-hardware-system)
 5. [Arena & Combat Engine](#5-arena--combat-engine)
 6. [User Interface & Game Modes](#6-user-interface--game-modes)
@@ -109,17 +109,36 @@ Registers are the primary interface between the program and the robot's hardware
 | `ENERGY` | 0–max | Current energy level |
 | `ARMOR` | 0–max | Current armor (hit points) |
 | `HEAT` | 0–20 | Current weapon heat (max heat is fixed at 20) |
-| `RANGE` | 0–1500 | Distance to nearest enemy in radar cone |
-| `RADAR` | 0–359 | Absolute bearing (°) to nearest detected enemy |
+| `DAMAGE` | 0+ | Total damage received so far this battle |
+| `RANGE` | 0–1500 | Distance to nearest enemy within the `AIM+SCAN` cone |
+| `RADAR` | 0–359 | Absolute bearing (°) to nearest detected enemy in `AIM+SCAN` cone |
+| `DOPPLER` | −max–max | Radial velocity of nearest object in the `AIM+LOOK` direction (positive = approaching, negative = receding). Used to lead shots. |
 | `SPEEDX` | −max–max | Current X velocity (pixels/tick, rounded) |
 | `SPEEDY` | −max–max | Current Y velocity |
-| `POSX` | 0–arenaW | Robot X position (rounded) |
-| `POSY` | 0–arenaH | Robot Y position (rounded) |
+| `X` | 0–arenaW | Robot X position (rounded). Alias: `POSX` |
+| `Y` | 0–arenaH | Robot Y position (rounded). Alias: `POSY` |
+| `TOP` | 0+ | Distance from robot to the top arena wall |
+| `BOT` | 0+ | Distance from robot to the bottom arena wall |
+| `LEFT` | 0+ | Distance from robot to the left arena wall |
+| `RIGHT` | 0+ | Distance from robot to the right arena wall |
 | `COLLISION` | 0/1 | 1 if collided with wall or robot last tick |
 | `STUNNED` | 0/1 | 1 if robot is stunned (hardware writes ignored) |
-| `TEAMMATES` | 0–7 | Number of surviving robots on the same team |
+| `ROBOTS` | 1+ | Total robots still alive (including self). Alias: `TEAMMATES` |
 | `RANDOM` | 0–255 | Deterministic per-robot RNG value; advances once per tick |
-| `TIME` | 0+ | Elapsed ticks this battle |
+| `CHRONON` | 0+ | Elapsed ticks this battle. Alias: `TIME` |
+| `ID` | 0–7 | Robot's index in this battle (0-based, stable for full battle) |
+
+#### Read/Write Registers
+
+These registers can be both read (push current value) and written (update the stored value).
+
+| Register | Range | Read | Write |
+|---|---|---|---|
+| `AIM` | 0–359 | Push current gun aim angle in degrees | Set gun aim directly (overrides GUNX/GUNY) |
+| `LOOK` | 0–359 | Push current look offset | Set angular offset used by `DOPPLER`. Combined with `AIM` to determine the direction scanned for Doppler reading. Default 0. |
+| `SCAN` | 0–359 | Push current scan offset | Set angular offset applied to the radar/range scan direction. Combined with `AIM` when computing `RADAR`/`RANGE`. Default 0. |
+
+> **LOOK vs SCAN:** `LOOK` shifts the direction used for `DOPPLER` sensing; `SCAN` shifts the direction used for `RADAR`/`RANGE` sensing. Both offsets are relative to the current `AIM` angle. A robot can therefore sweep a scan pattern completely independently of where its gun is pointing.
 
 #### Write-only Actuators
 
@@ -133,9 +152,6 @@ Registers are the primary interface between the program and the robot's hardware
 | `THRUSTY` | −5–5 | Apply Y thrust |
 | `BRAKE` | 0/1 | Apply braking force (velocity × 0.80 per tick when active) |
 | `BEEP` | 0–15 | Play tone (cosmetic only; no effect on simulation) |
-| `AIM` | 0–359 | Set gun aim angle directly in degrees (overrides GUNX/GUNY) |
-
-> **Note:** `AIM` is **write-only** in v1. Reading the current aim angle is not supported; use GUNX/GUNY for that purpose in future versions.
 
 ### 3.3 Instruction Set
 
@@ -164,6 +180,21 @@ Registers are the primary interface between the program and the robot's hardware
 | `NEG` | `a — −a` | |
 | `MAX` | `a b — max(a,b)` | |
 | `MIN` | `a b — min(a,b)` | |
+| `SQRT` | `a — floor(√a)` | Integer square root; negative input → 0 |
+| `DIST` | `dx dy — dist` | Euclidean distance: `floor(√(dx²+dy²))` |
+
+#### Trigonometry
+
+All trig functions work in **degrees** (matching the angle convention used by all registers). Results are scaled by 1000 (i.e. `SIN 90` → 1000, `SIN 45` → 707) so programs can do integer arithmetic without floating point.
+
+| Opcode | Stack effect | Notes |
+|---|---|---|
+| `SIN` | `deg — sin×1000` | Sine, degrees in, ×1000 scaled out |
+| `COS` | `deg — cos×1000` | Cosine, degrees in, ×1000 scaled out |
+| `TAN` | `deg — tan×1000` | Tangent; 90° / 270° → 0 (undefined clamped) |
+| `ARCTAN` | `y x — deg` | Two-argument arctangent (like atan2); returns 0–359 |
+| `ARCSIN` | `val — deg` | Inverse sine; input is ×1000 scaled |
+| `ARCCOS` | `val — deg` | Inverse cosine; input is ×1000 scaled |
 
 #### Comparison (return 1=true, 0=false)
 
@@ -204,6 +235,19 @@ RETURN          ; pop return address, jump back
 
 > **LOOP semantics:** `LOOP/POOL` creates an **infinite loop** — no count is popped from the stack. The loop body executes continuously across ticks; the robot's VM picks up from where it left off each tick (PC is preserved between ticks). To break out of a loop, use `GOTO`.
 
+#### Interrupt Control
+
+| Opcode | Operands | Description |
+|---|---|---|
+| `SETINT` | `name label` | Register `label` as the ISR for interrupt `name`. Use `0` as label to disable. |
+| `SETPARAM` | `name value` | Set the threshold parameter for interrupt `name` (see §3.7 for defaults). |
+| `INTON` | — | Enable interrupt processing (default: enabled). |
+| `INTOFF` | — | Disable interrupt processing (interrupts still queue but do not fire). |
+| `RTI` | — | Return from interrupt — re-enables interrupts and jumps back to interrupted PC. Equivalent to `INTON RETURN`. |
+| `FLUSHINT` | — | Clear the interrupt queue without executing pending handlers. |
+
+Interrupt names: `COLLISION`, `WALL`, `DAMAGE`, `SHIELD`, `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `RADAR`, `RANGE`, `ROBOTS`, `SIGNAL`, `CHRONON`. See §3.7 for full descriptions.
+
 #### Variable Access
 
 ```
@@ -230,12 +274,16 @@ RADAR AIM       ; push bearing then pop it into AIM (point gun at nearest enemy)
 
 ### 3.4 Execution Model
 
-1. At the start of each game tick, sensors are updated for all robots.
-2. The VM executes **CPU cycles** instructions for each alive, unstunned robot.
-3. Stack underflow returns 0 (no crash).
-4. Programs wrap around: when the PC reaches the end of the bytecode it resets to 0.
-5. A robot that is `STUNNED` still advances its PC but hardware writes are silently ignored.
-6. The VM is cycle-accurate for replay determinism; the battle seed is stored in the replay header.
+1. At the start of each game tick, sensors are updated for all robots (including `DOPPLER`, wall distances, `CHRONON`, etc.).
+2. Before executing normal program instructions, the VM checks the **interrupt queue**:
+   - Any interrupt whose condition became true this tick is appended to the queue (highest-priority first).
+   - If interrupts are enabled (`INTON`) and the queue is non-empty, the VM saves the current PC, disables further interrupt delivery, and jumps to the registered handler.
+   - The handler runs for as many CPU cycles as remain this tick. `RTI` re-enables interrupts and restores the saved PC.
+3. The VM executes **CPU cycles** instructions for each alive, unstunned robot.
+4. Stack underflow returns 0 (no crash).
+5. Programs wrap around: when the PC reaches the end of the bytecode it resets to 0.
+6. A robot that is `STUNNED` still advances its PC but hardware writes are silently ignored.
+7. The VM is cycle-accurate for replay determinism; the battle seed is stored in the replay header.
 
 ### 3.5 Sample Program
 
@@ -253,18 +301,158 @@ LOOP
 POOL
 ```
 
-### 3.6 Compiler
+### 3.6 Advanced Sample Programs
+
+**Doppler-guided duelist** — uses `LOOK`/`DOPPLER` to lead shots:
+
+```
+; Lead shots using Doppler radial velocity
+#DEFINE targetBearing 1
+#DEFINE leadAngle     2
+#DEFINE dopplerVal    3
+
+LOOP
+  RADAR STORE targetBearing   ; bearing to nearest enemy
+  0 LOOK                      ; look straight along aim direction
+  DOPPLER STORE dopplerVal    ; positive = enemy approaching
+
+  ; Crude lead: add doppler/4 degrees of lead angle
+  dopplerVal RECALL 4 / STORE leadAngle
+  targetBearing RECALL leadAngle RECALL + AIM
+
+  1 FIRE
+
+  ENERGY 20 <
+  IF  0 SHIELD  ELSE  1 SHIELD  ENDIF
+POOL
+```
+
+**CHRONON-based alternator** — different behavior in odd vs even ticks:
+
+```
+LOOP
+  CHRONON 2 MOD  ; 0 on even ticks, 1 on odd
+  IF
+    RADAR AIM  1 FIRE   ; odd ticks: shoot
+  ELSE
+    RANDOM THRUSTX      ; even ticks: random thrust
+  ENDIF
+POOL
+```
+
+**Interrupt-driven wall avoider** — uses `SETINT`/`SETPARAM` to react to wall proximity:
+
+```
+; Register wall interrupt handler at program start
+SETINT WALL wallAvoid
+SETPARAM WALL 40          ; fire when within 40 units of any wall
+INTON
+
+LOOP
+  RADAR AIM
+  1 FIRE
+POOL
+
+wallAvoid:
+  ; When near a wall, thrust toward arena center and then return
+  X 150 - NEG THRUSTX     ; push away from X edge (assumes 300×300 arena)
+  Y 150 - NEG THRUSTY
+RTI
+```
+
+### 3.7 Interrupt System
+
+Interrupts let a robot define **event-driven subroutines** that execute automatically when a condition is met, without the main program needing to poll for it each tick.
+
+#### How Interrupts Work
+
+1. The program registers a handler label and optional threshold using `SETINT` and `SETPARAM`.
+2. Each tick, before normal VM execution, the engine evaluates all registered interrupts.
+3. Any that fire are appended to the **interrupt queue** in priority order (lower number = higher priority).
+4. If interrupts are enabled (`INTON`), the VM saves the current PC and jumps to the handler.
+5. The handler runs for the remaining CPU cycles that tick. `RTI` re-enables interrupts and resumes the original PC next tick.
+6. Multiple interrupts can queue; they are served one per tick in priority order.
+
+#### Interrupt Types
+
+| Name | Priority | Default Param | Fires when… |
+|---|---|---|---|
+| `COLLISION` | 1 | — | Robot collides with a wall or another robot |
+| `WALL` | 2 | 30 | Robot is within N units of any arena wall |
+| `DAMAGE` | 3 | 1 | Damage taken in a single tick ≥ N |
+| `SHIELD` | 4 | 10 | Shield energy drops below N |
+| `TOP` | 5 | 20 | Robot Y position < N (near top wall) |
+| `BOTTOM` | 6 | arenaH−20 | Robot Y position > N (near bottom wall) |
+| `LEFT` | 7 | 20 | Robot X position < N (near left wall) |
+| `RIGHT` | 8 | arenaW−20 | Robot X position > N (near right wall) |
+| `RADAR` | 9 | arenaW×2 | Nearest detected enemy range ≤ N |
+| `RANGE` | 10 | arenaW×2 | Nearest object in SCAN direction ≤ N units away |
+| `ROBOTS` | 12 | 6 | Fewer than N robots remain alive in the arena |
+| `CHRONON` | 14 | 0 | Fires every N ticks (0 = disabled) |
+
+#### Interrupt Instructions in Detail
+
+```
+SETINT WALL myHandler     ; register label "myHandler" as the WALL interrupt service routine
+                          ; use "0" or an undefined label to unregister
+
+SETPARAM WALL 50          ; set the WALL interrupt threshold to 50 units
+
+SETPARAM CHRONON 10       ; fire a CHRONON interrupt every 10 ticks
+
+INTOFF                    ; globally disable interrupt delivery (they still queue)
+INTON                     ; re-enable interrupt delivery
+
+RTI                       ; return from interrupt:
+                          ;   re-enables interrupts + jumps to saved PC
+                          ;   equivalent to: INTON RETURN
+
+FLUSHINT                  ; discard all queued interrupts without executing them
+```
+
+> **Interrupt safety:** While a handler is executing, interrupts are automatically disabled (to prevent re-entry). Always end handlers with `RTI` rather than `RETURN` to ensure interrupts are re-enabled. Calling `INTOFF` inside a handler followed by `RETURN` permanently disables interrupts for that robot.
+
+#### Example: Reactive Shield
+
+```
+; Only raise shield when taking heavy fire — saves energy otherwise
+SETINT DAMAGE damageISR
+SETPARAM DAMAGE 3         ; fire if we take ≥ 3 damage in one tick
+INTON
+
+LOOP
+  RADAR AIM
+  1 FIRE
+  0 SHIELD                ; shield normally off to save energy
+POOL
+
+damageISR:
+  1 SHIELD                ; snap shield on
+  ; main loop will turn it off again next time through
+RTI
+```
+
+### 3.8 Compiler
 
 The compiler performs these passes:
 
 1. **Tokeniser** — split source on whitespace, strip comments (`;` to end of line)
 2. **`#DEFINE` extraction** — collect macro definitions before other processing
-3. **Macro expansion** — substitute defined names in the token stream (GOTO/CALL label operands are never expanded)
+3. **Macro expansion** — substitute defined names in the token stream (GOTO/CALL/SETINT/SETPARAM label and name operands are never expanded)
 4. **Label collection** — first pass over expanded tokens; simulate bytecode size to assign each label a PC address
-5. **Bytecode emission** — second pass emits actual opcodes; back-patches `IF/ELSE/ENDIF` placeholders; resolves `LOOP/POOL` backward jumps
-6. **Validation** — unmatched IF/ENDIF, LOOP/POOL; unknown opcodes; invalid STORE/RECALL slots; undefined labels → error with token text
+5. **Bytecode emission** — second pass emits actual opcodes; back-patches `IF/ELSE/ENDIF` placeholders; resolves `LOOP/POOL` backward jumps; encodes `SETINT`/`SETPARAM` two-word instructions
+6. **Validation** — unmatched IF/ENDIF, LOOP/POOL; unknown opcodes; invalid STORE/RECALL slots; undefined labels; unknown interrupt names in SETINT/SETPARAM → error with token text
 
 Compiler errors are displayed inline in the editor's error panel.
+
+#### Two-word Instructions
+
+`SETINT` and `SETPARAM` each consume **two tokens**: the interrupt name and the label/value. These tokens are never macro-expanded and must be literal identifiers or integers.
+
+```
+SETINT  WALL   myHandler   ; two tokens consumed: "WALL" and "myHandler"
+SETPARAM CHRONON 10         ; two tokens consumed: "CHRONON" and "10"
+```
 
 ---
 
