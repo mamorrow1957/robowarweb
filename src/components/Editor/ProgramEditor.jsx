@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { HighlightStyle } from '@codemirror/language';
@@ -101,7 +101,7 @@ const editorTheme = EditorView.theme({
   '.cm-gutters': { backgroundColor: '#161b22', borderRight: '1px solid #30363d', color: '#6e7681' },
   '.cm-activeLineGutter': { backgroundColor: '#1c2128' },
   '.cm-activeLine': { backgroundColor: '#1c2128' },
-  '.cm-cursor': { borderLeftColor: '#58a6ff' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#58a6ff', borderLeftWidth: '2px' },
   '.cm-selectionBackground': { backgroundColor: '#264f78 !important' },
 });
 
@@ -120,6 +120,7 @@ export default function ProgramEditor({ value, onChange, errors }) {
         extensions: [
           lineNumbers(),
           highlightActiveLine(),
+          drawSelection(),
           keymap.of([...defaultKeymap, indentWithTab, ...completionKeymap]),
           roboWarLang,
           syntaxHighlighting(rwTheme),
