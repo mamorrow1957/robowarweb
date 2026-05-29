@@ -3,11 +3,13 @@ import { getRobots, deleteRobot, saveRobot, newRobotId } from '../storage.js';
 import { DEFAULT_HARDWARE, ROBOT_COLORS, calcHardwareCost } from '../engine/hardware.js';
 
 function parseRwFile(text) {
-  const lines = text.split('\n');
+  // Normalise line endings (CRLF → LF)
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let name = 'Imported Robot';
   let hardware = { ...DEFAULT_HARDWARE };
   let programLines = [];
   let inProgram = false;
+  let foundProgram = false;
 
   for (const line of lines) {
     if (line.startsWith('#NAME ')) {
@@ -22,12 +24,15 @@ function parseRwFile(text) {
       }
     } else if (line.startsWith('#PROGRAM')) {
       inProgram = true;
+      foundProgram = true;
     } else if (line.startsWith('#END')) {
       inProgram = false;
     } else if (inProgram) {
       programLines.push(line);
     }
   }
+
+  if (!foundProgram) return null;
 
   while (programLines.length && programLines[programLines.length - 1].trim() === '') {
     programLines.pop();
@@ -75,11 +80,16 @@ export default function MyRobots({ navigate }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const parsed = parseRwFile(ev.target.result);
+      if (!parsed) {
+        alert('Could not parse file — make sure it is a valid .rw robot file.');
+        return;
+      }
       const robot = { id: newRobotId(), ...parsed };
       saveRobot(robot);
       setRobots(getRobots());
       navigate('editor', { robotId: robot.id });
     };
+    reader.onerror = () => alert('Failed to read file.');
     reader.readAsText(file);
     e.target.value = '';
   }
@@ -92,7 +102,6 @@ export default function MyRobots({ navigate }) {
           <input
             ref={importRef}
             type="file"
-            accept=".rw"
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />

@@ -14,11 +14,13 @@ POOL
 `;
 
 function parseRwFile(text) {
-  const lines = text.split('\n');
+  // Normalise line endings (CRLF → LF)
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let name = 'Imported Robot';
   let hardware = { ...DEFAULT_HARDWARE };
   let programLines = [];
   let inProgram = false;
+  let foundProgram = false;
 
   for (const line of lines) {
     if (line.startsWith('#NAME ')) {
@@ -33,12 +35,16 @@ function parseRwFile(text) {
       }
     } else if (line.startsWith('#PROGRAM')) {
       inProgram = true;
+      foundProgram = true;
     } else if (line.startsWith('#END')) {
       inProgram = false;
     } else if (inProgram) {
       programLines.push(line);
     }
   }
+
+  // Return null if the file doesn't look like a .rw robot file at all
+  if (!foundProgram) return null;
 
   // Strip trailing blank lines from program
   while (programLines.length && programLines[programLines.length - 1].trim() === '') {
@@ -106,8 +112,13 @@ export default function RobotEditor({ robotId, navigate }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const parsed = parseRwFile(ev.target.result);
+      if (!parsed) {
+        alert('Could not parse file — make sure it is a valid .rw robot file.');
+        return;
+      }
       update({ name: parsed.name, hardware: parsed.hardware, program: parsed.program });
     };
+    reader.onerror = () => alert('Failed to read file.');
     reader.readAsText(file);
     e.target.value = ''; // allow re-import of same file
   }
@@ -147,7 +158,6 @@ export default function RobotEditor({ robotId, navigate }) {
           <input
             ref={importRef}
             type="file"
-            accept=".rw"
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
