@@ -170,6 +170,13 @@ test('battle shows winner text', async ({ page }) => {
   await expect(page.locator('.battle-controls')).toContainText(/wins|Draw/i);
 });
 
+test('winner text is not shown before viewing the last frame', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  // At tick 1 (just loaded, not played) the result should not be visible
+  await expect(page.locator('.battle-controls')).not.toContainText(/wins|Draw/i);
+});
+
 test('speed button becomes active when clicked', async ({ page }) => {
   await startBattle(page);
   await page.waitForSelector('canvas', { timeout: 15000 });
@@ -262,4 +269,40 @@ test('clicking debug button again hides the panel', async ({ page }) => {
   await expect(page.locator('.debug-panel')).toBeVisible();
   await btn.click();
   await expect(page.locator('.debug-panel')).toHaveCount(0);
+});
+
+test('debug panel has its own step controls', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  const strip = page.locator('.debug-step-btns');
+  await expect(strip).toBeVisible();
+  await expect(strip.locator('button', { hasText: /Prev/ })).toBeVisible();
+  await expect(strip.locator('button', { hasText: /Next/ })).toBeVisible();
+});
+
+test('debug panel step controls advance the tick', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  const counter = page.locator('.debug-tick-counter');
+  const before = await counter.textContent();
+  await page.locator('.debug-step-btns button', { hasText: /Next/ }).click();
+  const after = await counter.textContent();
+  expect(after).not.toBe(before);
+});
+
+test('clicking a robot tab switches the displayed robot name', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  const tabs = page.locator('.debug-robot-tab');
+  // First tab is active by default; click the second one and confirm its text matches
+  const secondName = await tabs.nth(1).textContent();
+  await tabs.nth(1).click();
+  await expect(tabs.nth(1)).toHaveClass(/active/);
+  // The active tab label should match the second robot's name (strip any ✕ suffix)
+  const activeName = (await tabs.nth(1).textContent())?.trim();
+  expect(activeName).toBeTruthy();
+  expect(secondName?.trim()).toBe(activeName);
 });
