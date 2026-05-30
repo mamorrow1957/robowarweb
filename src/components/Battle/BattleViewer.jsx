@@ -109,6 +109,7 @@ export default function BattleViewer({
       setCurrentTick(0);
     }
     accumRef.current = 0;
+    prevFrameRef.current = null; // reset so tick-0 shots register on first animation step
     playingRef.current = true;
     setPlaying(true);
     rafRef.current = requestAnimationFrame(animate);
@@ -171,6 +172,7 @@ export default function BattleViewer({
             if (framesRef.current.length > 0) {
               accumRef.current = 0;
               naturalEndRef.current = false;
+              prevFrameRef.current = null; // reset so tick-0 shots register on first animation step
               playingRef.current = true;
               setPlaying(true);
               rafRef.current = requestAnimationFrame(animate);
@@ -234,10 +236,14 @@ export default function BattleViewer({
 
     const prev = prevFrameRef.current;
 
-    // Fire: new alive projectiles appeared (check even on first frame where prev=null)
-    const prevCount = prev ? prev.projectiles.filter(p => p.alive).length : 0;
+    // Fire: new alive projectiles appeared.
+    // When prev is null (first step after play starts), treat as 0 prev projectiles
+    // so tick-0 shots are caught — but only while actively playing, not on initial load.
+    const prevCount = prev
+      ? prev.projectiles.filter(p => p.alive).length
+      : (playingRef.current ? 0 : null);
     const curCount  = frame.projectiles.filter(p => p.alive).length;
-    if (curCount > prevCount) {
+    if (prevCount !== null && curCount > prevCount) {
       const now = Date.now();
       if (now - lastFireRef.current > 180) {
         const newProj = frame.projectiles.find(p => p.alive);
