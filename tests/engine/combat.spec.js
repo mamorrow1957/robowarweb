@@ -495,7 +495,7 @@ test('SCAN offset shifts radar detection direction', async ({ page }) => {
     const { compile } = await import('/src/engine/compiler.js');
     const { CombatEngine } = await import('/src/engine/combat.js');
     const { bytecode: bc1 } = compile('LOOP POOL');
-    const { bytecode: bc2 } = compile('90 SCAN\nLOOP POOL');  // 90° scan offset
+    const { bytecode: bc2 } = compile('LOOP\n90 SCAN\nPOOL');  // 90° scan offset (written every tick)
     const robots = [
       { id: 'r1', bytecode: bc1, team: 0,
         hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 1, cooling: 0, radar: 3 } },

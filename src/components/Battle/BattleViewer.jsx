@@ -233,19 +233,20 @@ export default function BattleViewer({
     }
 
     const prev = prevFrameRef.current;
-    if (prev) {
-      // Fire: new alive projectiles appeared
-      const prevCount = prev.projectiles.filter(p => p.alive).length;
-      const curCount  = frame.projectiles.filter(p => p.alive).length;
-      if (curCount > prevCount) {
-        const now = Date.now();
-        if (now - lastFireRef.current > 180) {
-          const newProj = frame.projectiles.find(p => p.alive);
-          playFire(newProj?.type || 'bullet');
-          lastFireRef.current = now;
-        }
-      }
 
+    // Fire: new alive projectiles appeared (check even on first frame where prev=null)
+    const prevCount = prev ? prev.projectiles.filter(p => p.alive).length : 0;
+    const curCount  = frame.projectiles.filter(p => p.alive).length;
+    if (curCount > prevCount) {
+      const now = Date.now();
+      if (now - lastFireRef.current > 180) {
+        const newProj = frame.projectiles.find(p => p.alive);
+        playFire(newProj?.type || 'bullet');
+        lastFireRef.current = now;
+      }
+    }
+
+    if (prev) {
       // Hit: any alive robot lost armor
       let hitPlayed = false;
       for (const robot of frame.robots) {

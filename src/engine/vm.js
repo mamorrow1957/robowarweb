@@ -57,6 +57,8 @@ function resetActuators(vm) {
   vm.gunX = null;
   vm.gunY = null;
   vm.beep = 0;
+  vm.look = 0;
+  vm.scan = 0;
 }
 
 export function setSensors(vm, sensors) {
