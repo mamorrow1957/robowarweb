@@ -233,27 +233,25 @@ test('clicking debug button shows debug panel', async ({ page }) => {
   await expect(page.locator('.debug-panel')).toBeVisible();
 });
 
-test('debug panel shows a card per robot', async ({ page }) => {
+test('debug panel shows a selector tab per robot', async ({ page }) => {
   await startBattle(page);
   await page.waitForSelector('canvas', { timeout: 15000 });
   await page.locator('button', { hasText: /Debug/ }).click();
-  await expect(page.locator('.debug-robot-card')).toHaveCount(2);
+  await expect(page.locator('.debug-robot-tab')).toHaveCount(2);
 });
 
 test('debug panel shows Sensors section', async ({ page }) => {
   await startBattle(page);
   await page.waitForSelector('canvas', { timeout: 15000 });
   await page.locator('button', { hasText: /Debug/ }).click();
-  const card = page.locator('.debug-robot-card').first();
-  await expect(card.locator('.debug-section-label', { hasText: 'Sensors' })).toBeVisible();
+  await expect(page.locator('.debug-panel .debug-section-label', { hasText: 'Sensors' })).toBeVisible();
 });
 
 test('debug panel shows Variables section', async ({ page }) => {
   await startBattle(page);
   await page.waitForSelector('canvas', { timeout: 15000 });
   await page.locator('button', { hasText: /Debug/ }).click();
-  const card = page.locator('.debug-robot-card').first();
-  await expect(card.locator('.debug-section-label', { hasText: 'Variables' })).toBeVisible();
+  await expect(page.locator('.debug-panel .debug-section-label', { hasText: 'Variables' })).toBeVisible();
 });
 
 test('clicking debug button again hides the panel', async ({ page }) => {

@@ -146,12 +146,17 @@ export default function BattleViewer({
   }
 
   function toggleDebug() {
-    setDebugMode(prev => {
-      const next = !prev;
-      if (next) pause(); // entering debug mode → pause so user can step
-      return next;
-    });
+    setDebugMode(prev => !prev); // side-effects handled by the effect below
   }
+
+  // Pause playback whenever debug mode is switched on
+  useEffect(() => {
+    if (debugMode) {
+      playingRef.current = false;
+      setPlaying(false);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    }
+  }, [debugMode]);
 
   // ── Load worker ───────────────────────────────────────────────────────────
 
@@ -372,10 +377,10 @@ export default function BattleViewer({
               🐛 Debug
             </button>
 
-            {result && (
+            {frame?.result && (
               <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 600 }}>
-                {result.winnerName
-                  ? `${result.winnerName} wins! (${result.reason})`
+                {frame.result.winnerName
+                  ? `${frame.result.winnerName} wins! (${frame.result.reason})`
                   : 'Draw'}
               </span>
             )}
@@ -423,8 +428,18 @@ export default function BattleViewer({
             </div>
           )}
 
-          {/* Debug panel */}
-          {debugMode && frame && <DebugPanel frame={frame} />}
+          {/* Debug panel — own step controls + robot selector */}
+          {debugMode && frame && (
+            <DebugPanel
+              frame={frame}
+              currentTick={currentTick}
+              total={total}
+              onStepBack={() => stepBy(-1)}
+              onStepForward={() => stepBy(1)}
+              onJumpStart={() => jumpTo(0)}
+              onJumpEnd={() => jumpTo(total - 1)}
+            />
+          )}
         </>
       )}
     </div>
