@@ -371,42 +371,81 @@ body {
 }
 
 .debug-panel {
-  border: 1px solid #30363d;
+  border: 1px solid #d2a8ff50;
   border-radius: 8px;
   background: var(--surface);
-  padding: 12px;
-  overflow-x: auto;
+  overflow: hidden;
+}
+
+/* Header row: title left, step controls right */
+.debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #1a0a2e;
+  border-bottom: 1px solid #d2a8ff30;
+  flex-wrap: wrap;
 }
 
 .debug-panel-title {
   font-size: 12px;
   font-weight: 600;
   color: #d2a8ff;
-  margin-bottom: 10px;
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
-.debug-robots {
+.debug-step-btns {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  align-items: center;
+  gap: 6px;
 }
 
-.debug-robot-card {
+.debug-tick-counter {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* Robot selector tabs */
+.debug-robot-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-top-width: 3px;
-  border-radius: 6px;
-  padding: 8px 10px;
-  min-width: 160px;
-  flex: 1;
+  overflow-x: auto;
 }
 
-.debug-robot-name {
+.debug-robot-tab {
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-dim);
   font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
 }
+.debug-robot-tab:hover { color: var(--text); }
+.debug-robot-tab.active { color: var(--text); }
+
+/* Two-column layout: sensors left, actuators+vars+vm right */
+.debug-robot-view { padding: 12px; }
+
+.debug-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) { .debug-columns { grid-template-columns: 1fr; } }
 
 .debug-section-label {
   font-size: 10px;
@@ -416,7 +455,7 @@ body {
   color: var(--text-dim);
   margin: 8px 0 3px;
 }
-.debug-section-label:first-of-type { margin-top: 0; }
+.debug-section-label:first-child { margin-top: 0; }
 
 .debug-table {
   width: 100%;
@@ -424,15 +463,14 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
 }
-
-.debug-table tr { line-height: 1.7; }
+.debug-table tr          { line-height: 1.7; }
 .debug-table tr:nth-child(even) td { background: #ffffff06; }
 
 .debug-key {
   color: var(--text-dim);
   padding-right: 8px;
   white-space: nowrap;
-  width: 56px;
+  width: 58px;
 }
 
 .debug-val {
@@ -445,24 +483,17 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-dim);
-  padding: 2px 0;
+  padding: 3px 0;
+  font-style: italic;
 }
 
 .debug-var-name { color: #79c0ff; }
 .debug-var-slot { color: var(--text-dim); font-size: 10px; }
 
-.debug-vm-row {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.8;
-}
-
 .debug-stack {
   color: var(--text-dim);
   font-size: 10px;
-  max-width: 110px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
