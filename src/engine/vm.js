@@ -272,7 +272,7 @@ function handleWrite(vm, regIdx, val) {
     case REG.SHIELD:  vm.shield = val; break;
     case REG.GUNX:    vm.gunX = val; break;
     case REG.GUNY:    vm.gunY = val; break;
-    case REG.FIRE:    vm.fire = val; break;
+    case REG.FIRE:    if (val > 0) vm.fire++; break;
     case REG.THRUSTX: vm.thrustX = Math.max(-5, Math.min(5, val)); break;
     case REG.THRUSTY: vm.thrustY = Math.max(-5, Math.min(5, val)); break;
     case REG.BRAKE:   vm.brake = val !== 0; break;
