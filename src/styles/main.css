@@ -363,6 +363,112 @@ body {
 .tourn-mode-btn:hover { background: #2d333b; color: var(--text); border-color: #484f58; }
 .tourn-mode-btn.active { border-color: var(--accent); color: var(--accent); background: #0d1b2a; }
 
+/* ── Debug panel ────────────────────────── */
+.debug-active {
+  border-color: #d2a8ff !important;
+  color: #d2a8ff !important;
+  background: #1a0a2e !important;
+}
+
+.debug-panel {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.debug-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d2a8ff;
+  margin-bottom: 10px;
+  letter-spacing: 0.03em;
+}
+
+.debug-robots {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.debug-robot-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-top-width: 3px;
+  border-radius: 6px;
+  padding: 8px 10px;
+  min-width: 160px;
+  flex: 1;
+}
+
+.debug-robot-name {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.debug-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 8px 0 3px;
+}
+.debug-section-label:first-of-type { margin-top: 0; }
+
+.debug-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.debug-table tr { line-height: 1.7; }
+.debug-table tr:nth-child(even) td { background: #ffffff06; }
+
+.debug-key {
+  color: var(--text-dim);
+  padding-right: 8px;
+  white-space: nowrap;
+  width: 56px;
+}
+
+.debug-val {
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.debug-empty {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 0;
+}
+
+.debug-var-name { color: #79c0ff; }
+.debug-var-slot { color: var(--text-dim); font-size: 10px; }
+
+.debug-vm-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.debug-stack {
+  color: var(--text-dim);
+  font-size: 10px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
 /* ── Leaderboard ────────────────────────── */
 .lb-table { width: 100%; border-collapse: collapse; }
 .lb-table th, .lb-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }

@@ -88,6 +88,7 @@ export class CombatEngine {
         robotIdx:    idx,           // stable 0-based index (ID sensor)
         damageTaken: 0,             // damage received THIS tick (for DAMAGE interrupt)
         totalDamage: 0,             // cumulative damage received (DAMAGE sensor)
+        varNames:    rDef.varNames || {},  // slot→name map from #DEFINE directives
         sensors: {
           ENERGY:0, ARMOR:0, HEAT:0, RANGE:0, RADAR:180,
           SPEEDX:0, SPEEDY:0, POSX:0, POSY:0,
@@ -499,6 +500,33 @@ export class CombatEngine {
         scanAngle: ((r.aimAngle + r.vm.scan) % 360 + 360) % 360,
         lookAngle: ((r.aimAngle + r.vm.look) % 360 + 360) % 360,
         color:     r.color,
+        // ── Debug data ─────────────────────────────────────────────────────
+        debug: {
+          // Sensor values that were available to the VM this tick
+          sensors: { ...r.sensors },
+          // Actuator values the VM wrote this tick (reset each tick)
+          actuators: {
+            fire:    r.vm.fire,
+            thrustX: r.vm.thrustX,
+            thrustY: r.vm.thrustY,
+            brake:   r.vm.brake,
+            shield:  r.vm.shield,
+            aim:     r.vm.aim,
+            beep:    r.vm.beep,
+            look:    r.vm.look,
+            scan:    r.vm.scan,
+          },
+          // Only non-zero STORE/RECALL slots
+          vars: r.vm.vars.reduce((acc, v, i) => {
+            if (i > 0 && v !== 0) acc[i] = v;
+            return acc;
+          }, {}),
+          // #DEFINE slot→name map
+          varNames: r.varNames,
+          // VM internals
+          pc:    r.vm.pc,
+          stack: r.vm.stack.slice(-8),  // last 8 items
+        },
       })),
       projectiles: this.projectiles.map(p => ({
         id: p.id, type: p.type,

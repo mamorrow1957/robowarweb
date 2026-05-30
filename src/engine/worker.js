@@ -1,4 +1,4 @@
-import { compile } from './compiler.js';
+import { compile, getDefines } from './compiler.js';
 import { CombatEngine } from './combat.js';
 
 self.onmessage = (e) => {
@@ -8,7 +8,8 @@ self.onmessage = (e) => {
 
   const robots = config.robots.map(r => {
     const { bytecode, errors } = compile(r.program || '');
-    return { ...r, bytecode, compileErrors: errors };
+    const varNames = getDefines(r.program || '');
+    return { ...r, bytecode, varNames, compileErrors: errors };
   });
 
   const compileErrors = robots.flatMap(r =>
