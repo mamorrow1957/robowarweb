@@ -284,3 +284,20 @@ export function compile(source) {
   const { bytecode, errors } = emitBytecode(tokens, defines, labels);
   return { bytecode, errors };
 }
+
+/**
+ * Parse a program source and return a slot→name mapping for any
+ * `#DEFINE name N` directives where N is a valid STORE/RECALL slot (1-100).
+ * Used by the debug panel to show human-readable variable names.
+ */
+export function getDefines(source) {
+  const { defines } = tokenize(source);
+  const varNames = {};
+  for (const [name, val] of Object.entries(defines)) {
+    const slot = parseInt(val, 10);
+    if (!isNaN(slot) && slot >= 1 && slot <= 100) {
+      varNames[slot] = name;
+    }
+  }
+  return varNames;
+}

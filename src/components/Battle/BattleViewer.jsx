@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ArenaCanvas from './ArenaCanvas.jsx';
+import DebugPanel from './DebugPanel.jsx';
 import {
   getMuted, setMuted as soundSetMuted, unlockAudio,
   playFire, playHit, playExplosion, playVictory,
@@ -26,6 +27,7 @@ export default function BattleViewer({
   const [error, setError]             = useState(null);
   const [result, setResult]           = useState(null);
   const [muted, setMuted]             = useState(() => getMuted());
+  const [debugMode, setDebugMode]     = useState(false);
 
   const framesRef          = useRef([]);
   const playingRef         = useRef(false);
@@ -143,6 +145,14 @@ export default function BattleViewer({
     soundSetMuted(next);
   }
 
+  function toggleDebug() {
+    setDebugMode(prev => {
+      const next = !prev;
+      if (next) pause(); // entering debug mode → pause so user can step
+      return next;
+    });
+  }
+
   // ── Load worker ───────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -218,6 +228,7 @@ export default function BattleViewer({
       if (e.key === '5') setSpeed(20);
       if (e.key === '6') setSpeed('max');
       if (e.key === 'm') toggleMute();
+      if (e.key === 'd') toggleDebug();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -353,6 +364,14 @@ export default function BattleViewer({
               {muted ? '🔇' : '🔊'}
             </button>
 
+            <button
+              className={`btn small${debugMode ? ' debug-active' : ''}`}
+              onClick={toggleDebug}
+              title="Debug mode — single-step and inspect registers (D)"
+            >
+              🐛 Debug
+            </button>
+
             {result && (
               <span style={{ marginLeft: 'auto', color: 'var(--green)', fontWeight: 600 }}>
                 {result.winnerName
@@ -403,6 +422,9 @@ export default function BattleViewer({
               ))}
             </div>
           )}
+
+          {/* Debug panel */}
+          {debugMode && frame && <DebugPanel frame={frame} />}
         </>
       )}
     </div>
