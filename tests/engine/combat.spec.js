@@ -187,6 +187,28 @@ test('projectile has expected properties', async ({ page }) => {
   }
 });
 
+test('multiple FIRE writes in one tick each produce a projectile', async ({ page }) => {
+  // Program fires twice per loop iteration; cpu=1 (5 cycles) fits both writes in one tick
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    const { bytecode } = compile('LOOP\n  0 AIM\n  1 FIRE\n  1 FIRE\nPOOL');
+    const robots = [
+      { id: 'r1', program: 'LOOP\n  0 AIM\n  1 FIRE\n  1 FIRE\nPOOL', bytecode,
+        hardware: { armor: 2, shield: 0, weapon: 'bullet', engine: 0, energy: 2, cpu: 1, cooling: 1, radar: 0 },
+        team: 0 },
+      { id: 'r2', program: 'LOOP POOL', bytecode: compile('LOOP POOL').bytecode,
+        hardware: { armor: 2, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 1, cooling: 0, radar: 0 },
+        team: 1 },
+    ];
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300, tickLimit: 3, seed: 1 });
+    const { frames } = engine.simulate();
+    const maxProj = Math.max(...frames.map(f => f.projectiles.length));
+    return { maxProj };
+  });
+  expect(result.maxProj).toBeGreaterThanOrEqual(2);
+});
+
 // ── Damage & victory ──────────────────────────────────────────────────────────
 
 test('a robot with zero program eventually loses to a shooter', async ({ page }) => {
