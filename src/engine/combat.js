@@ -256,10 +256,13 @@ export class CombatEngine {
       }
     }
 
-    // 8. Spawn projectiles from fire commands
+    // 8. Spawn projectiles from fire commands (vm.fire counts how many times
+    //    FIRE was written this tick, so multiple writes in one tick each produce
+    //    one projectile, subject to the heat cap).
     for (const r of this.robots) {
       if (!r.alive || r.stunnedTicks > 0) continue;
-      if (r.vm.fire > 0 && r.heat < r.hw.maxHeat && r.hw.weapon !== 'none') {
+      for (let i = 0; i < r.vm.fire; i++) {
+        if (r.heat >= r.hw.maxHeat || r.hw.weapon === 'none') break;
         this.spawnProjectile(r);
       }
     }
