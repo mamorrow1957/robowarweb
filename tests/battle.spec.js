@@ -211,3 +211,57 @@ test('mute button toggles muted state', async ({ page }) => {
   await btn.click();
   await expect(btn).not.toHaveClass(/muted/);
 });
+
+// ── Debug mode ───────────────────────────────────────────────────────────────
+
+test('battle viewer shows debug button', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await expect(page.locator('button', { hasText: /Debug/ })).toBeVisible();
+});
+
+test('debug panel is hidden by default', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await expect(page.locator('.debug-panel')).toHaveCount(0);
+});
+
+test('clicking debug button shows debug panel', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  await expect(page.locator('.debug-panel')).toBeVisible();
+});
+
+test('debug panel shows a card per robot', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  await expect(page.locator('.debug-robot-card')).toHaveCount(2);
+});
+
+test('debug panel shows Sensors section', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  const card = page.locator('.debug-robot-card').first();
+  await expect(card.locator('.debug-section-label', { hasText: 'Sensors' })).toBeVisible();
+});
+
+test('debug panel shows Variables section', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  await page.locator('button', { hasText: /Debug/ }).click();
+  const card = page.locator('.debug-robot-card').first();
+  await expect(card.locator('.debug-section-label', { hasText: 'Variables' })).toBeVisible();
+});
+
+test('clicking debug button again hides the panel', async ({ page }) => {
+  await startBattle(page);
+  await page.waitForSelector('canvas', { timeout: 15000 });
+  const btn = page.locator('button', { hasText: /Debug/ });
+  await btn.click();
+  await expect(page.locator('.debug-panel')).toBeVisible();
+  await btn.click();
+  await expect(page.locator('.debug-panel')).toHaveCount(0);
+});

@@ -135,10 +135,10 @@ These registers can be both read (push current value) and written (update the st
 | Register | Range | Read | Write |
 |---|---|---|---|
 | `AIM` | 0–359 | Push current gun aim angle in degrees | Set gun aim directly (overrides GUNX/GUNY) |
-| `LOOK` | 0–359 | Push current look offset | Set angular offset used by `DOPPLER`. Combined with `AIM` to determine the direction scanned for Doppler reading. Default 0. |
-| `SCAN` | 0–359 | Push current scan offset | Set angular offset applied to the radar/range scan direction. Combined with `AIM` when computing `RADAR`/`RANGE`. Default 0. |
+| `LOOK` | 0–359 | Push current look offset | Set angular offset used by `DOPPLER`. Combined with `AIM` to determine the direction scanned for Doppler reading. **Resets to 0 each tick — write inside `LOOP` to keep active.** |
+| `SCAN` | 0–359 | Push current scan offset | Set angular offset applied to the radar/range scan direction. Combined with `AIM` when computing `RADAR`/`RANGE`. **Resets to 0 each tick — write inside `LOOP` to keep active.** |
 
-> **LOOK vs SCAN:** `LOOK` shifts the direction used for `DOPPLER` sensing; `SCAN` shifts the direction used for `RADAR`/`RANGE` sensing. Both offsets are relative to the current `AIM` angle. A robot can therefore sweep a scan pattern completely independently of where its gun is pointing.
+> **LOOK vs SCAN:** `LOOK` shifts the direction used for `DOPPLER` sensing; `SCAN` shifts the direction used for `RADAR`/`RANGE` sensing. Both offsets are relative to the current `AIM` angle and **reset to 0 each tick** (like THRUSTX/THRUSTY). Include them inside your main loop to maintain a persistent offset.
 
 #### Write-only Actuators
 
@@ -147,7 +147,7 @@ These registers can be both read (push current value) and written (update the st
 | `SHIELD` | 0/1 | Enable or disable energy shield (ignored if shield hardware = 0) |
 | `GUNX` | −10–10 | Set gun aim X component (angle derived via atan2) |
 | `GUNY` | −10–10 | Set gun aim Y component |
-| `FIRE` | 0–3 | Fire weapon (0=none, 1=bullet, 2=missile, 3=drone) |
+| `FIRE` | any > 0 | Fire one projectile per write. Each write with value > 0 queues one shot; write N times in a tick to fire N projectiles. Ignored if heat ≥ 20 or no weapon. |
 | `THRUSTX` | −5–5 | Apply X thrust (clamped; multiplied by engine accel × 0.5 per tick) |
 | `THRUSTY` | −5–5 | Apply Y thrust |
 | `BRAKE` | 0/1 | Apply braking force (velocity × 0.80 per tick when active) |
@@ -716,6 +716,16 @@ Split into two panels:
 | Jump to start / end | ⏮ / ⏭ buttons |
 | Speed 10% / 25% / 1× / 5× / 20× / Max | 1 / 2 / 3 / 4 / 5 / 6 |
 | Toggle mute | M |
+| Toggle debug mode | D |
+
+**Debug mode** — press **🐛 Debug** (or D) to pause and show the register inspector panel. Step with ◀ ▶. The panel shows per-robot:
+
+| Section | Contents |
+|---|---|
+| Sensors | All 21 read registers for that tick |
+| Actuators | Only write registers with non-zero values this tick |
+| Variables | Non-zero STORE/RECALL slots; `#DEFINE` names shown if available |
+| VM | Program counter (PC) + top 8 stack entries |
 
 **Sound effects** (Web Audio API, procedural — no audio files):
 

@@ -358,8 +358,18 @@ test('reading RANDOM returns sensor value', async ({ page }) => {
   expect(stack).toEqual([128]);
 });
 
-test('writing FIRE sets vm.fire', async ({ page }) => {
+test('writing FIRE increments vm.fire counter', async ({ page }) => {
   const { fire } = await run(page, '1 FIRE');
+  expect(fire).toBe(1);
+});
+
+test('two FIRE writes in one tick increment counter to 2', async ({ page }) => {
+  const { fire } = await run(page, '1 FIRE 1 FIRE');
+  expect(fire).toBe(2);
+});
+
+test('writing 0 to FIRE does not increment counter', async ({ page }) => {
+  const { fire } = await run(page, '0 FIRE 1 FIRE');
   expect(fire).toBe(1);
 });
 
@@ -681,6 +691,37 @@ test('writing SCAN sets vm.scan', async ({ page }) => {
 test('LOOK value wraps at 360', async ({ page }) => {
   const { look } = await runFull(page, '400 LOOK', 2);
   expect(look).toBe(40);  // 400 % 360 = 40
+});
+
+test('LOOK resets to 0 at the start of each tick', async ({ page }) => {
+  // Program writes LOOK before the loop; only affects the tick it executes in
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, runTick } = await import('/src/engine/vm.js');
+    const { bytecode } = compile('45 LOOK LOOP POOL');
+    const vm = createVM(bytecode);
+    runTick(vm, 3);   // tick 1: writes LOOK=45, enters empty loop
+    const afterTick1 = vm.look;
+    runTick(vm, 5);   // tick 2: resetActuators fires, loop spins, never re-writes LOOK
+    return { afterTick1, afterTick2: vm.look };
+  });
+  expect(result.afterTick1).toBe(45);
+  expect(result.afterTick2).toBe(0);
+});
+
+test('SCAN resets to 0 at the start of each tick', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { createVM, runTick } = await import('/src/engine/vm.js');
+    const { bytecode } = compile('90 SCAN LOOP POOL');
+    const vm = createVM(bytecode);
+    runTick(vm, 3);
+    const afterTick1 = vm.scan;
+    runTick(vm, 5);
+    return { afterTick1, afterTick2: vm.scan };
+  });
+  expect(result.afterTick1).toBe(90);
+  expect(result.afterTick2).toBe(0);
 });
 
 // ── v0.5 New sensor reads ─────────────────────────────────────────────────────

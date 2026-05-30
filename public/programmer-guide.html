@@ -140,6 +140,7 @@
     <li><a href="#interrupts">§7 Interrupt System</a></li>
     <li><a href="#examples">§8 Example Programs</a></li>
     <li><a href="#tips">§9 Strategy Tips</a></li>
+    <li><a href="#debug">§10 Debug Mode</a></li>
   </ul>
 </div>
 
@@ -274,7 +275,7 @@
 <table>
   <tr><th>Name</th><th>Value</th><th>Description</th></tr>
   <tr><td><code>AIM</code></td><td>0–359°</td><td>Set gun aim angle in degrees (0=right, 90=down, 180=left, 270=up)</td></tr>
-  <tr><td><code>FIRE</code></td><td>1 to fire</td><td>Fire weapon in current aim direction (ignored if heat ≥ 20 or no weapon)</td></tr>
+  <tr><td><code>FIRE</code></td><td>any &gt; 0</td><td>Fire one projectile per write (value &gt; 0). Write <em>N</em> times in a tick to fire <em>N</em> projectiles. Ignored if heat ≥ 20 or no weapon.</td></tr>
   <tr><td><code>SHIELD</code></td><td>0 or 1</td><td>Enable/disable shield (requires shield hardware)</td></tr>
   <tr><td><code>THRUSTX</code></td><td>−5 to 5</td><td>Horizontal thrust force (clamped)</td></tr>
   <tr><td><code>THRUSTY</code></td><td>−5 to 5</td><td>Vertical thrust force (clamped)</td></tr>
@@ -287,7 +288,7 @@
 </table>
 
 <div class="note">
-  <strong>Note:</strong> LOOK and SCAN persist across ticks. Set once in your init block and they stay set.
+  <strong>Note:</strong> LOOK and SCAN reset to 0 each tick (like THRUSTX/THRUSTY). Write them inside your main <code>LOOP</code> every tick to keep the offset active.
 </div>
 
 <!-- §5 Math -->
@@ -562,6 +563,27 @@
   <li style="margin: 4px 0">Count your cycles: each bytecode word is one cycle. SETINT/SETPARAM use 3 words each. Register reads/writes use 2 words. The program wraps at the end.</li>
   <li style="margin: 4px 0">If your LOOP body needs more cycles than your CPU has per tick, the VM will resume mid-loop next tick — design accordingly.</li>
 </ul>
+
+<!-- §10 Debug Mode -->
+<h2 id="debug"><a class="section-anchor" href="#debug">§10 Debug Mode</a></h2>
+
+<p>The battle viewer includes a register inspector that lets you single-step through a battle and examine every robot's internal state tick-by-tick.</p>
+
+<h3>Activating Debug Mode</h3>
+<p>Click the <strong>🐛 Debug</strong> button in the battle controls bar (or press <kbd>D</kbd>). Playback pauses automatically. Use <strong>◀ ▶</strong> to step one tick at a time; the panel updates immediately.</p>
+
+<h3>What the Panel Shows</h3>
+<table>
+  <tr><th>Section</th><th>Contents</th></tr>
+  <tr><td><strong>Sensors</strong></td><td>All 21 read registers for that tick: POSX, POSY, ENERGY, ARMOR, HEAT, RADAR, RANGE, DOPPLER, TOP, BOT, LEFT, RIGHT, COLLISION, STUNNED, TEAMMATES, DAMAGE, RANDOM, TIME, ID, SPEEDX, SPEEDY</td></tr>
+  <tr><td><strong>Actuators</strong></td><td>Only registers written this tick (zero/null values are hidden): FIRE count, THRUSTX, THRUSTY, BRAKE, SHIELD, AIM, BEEP, LOOK, SCAN</td></tr>
+  <tr><td><strong>Variables</strong></td><td>Non-zero STORE/RECALL slots. If your program uses <code>#DEFINE name N</code>, the slot is labelled with that name — e.g. <code>bearing [1]: 90</code></td></tr>
+  <tr><td><strong>VM</strong></td><td>Program counter (PC) and the top 8 stack values</td></tr>
+</table>
+
+<div class="tip">
+  <strong>Tip:</strong> Variables are only shown when they are non-zero. A slot that has never been written, or was last written as <code>0 STORE N</code>, will not appear.
+</div>
 
 <hr style="border: none; border-top: 1px solid var(--border); margin: 40px 0 24px;">
 
