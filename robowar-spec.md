@@ -718,7 +718,10 @@ Split into two panels:
 | Toggle mute | M |
 | Toggle debug mode | D |
 
-**Debug mode** — press **🐛 Debug** (or D) to pause and show the register inspector panel. Step with ◀ ▶. The panel shows per-robot:
+**Debug mode** — press **🐛 Debug** (or D) to pause and open the register inspector. The panel has:
+- Its own step-control strip: ⏮ Prev / Next ▶ ⏭ with a tick counter (← / → keyboard shortcuts also work)
+- A **robot-selector tab bar** — one tab per robot, coloured with that robot's arena colour; click to inspect that robot. Destroyed robots are labelled with ✕.
+- A two-column register view for the selected robot:
 
 | Section | Contents |
 |---|---|
@@ -726,6 +729,8 @@ Split into two panels:
 | Actuators | Only write registers with non-zero values this tick |
 | Variables | Non-zero STORE/RECALL slots; `#DEFINE` names shown if available |
 | VM | Program counter (PC) + top 8 stack entries |
+
+Winner text in the controls bar is only shown once the user views the final frame (not pre-populated when frames load).
 
 **Sound effects** (Web Audio API, procedural — no audio files):
 

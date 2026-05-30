@@ -570,7 +570,12 @@
 <p>The battle viewer includes a register inspector that lets you single-step through a battle and examine every robot's internal state tick-by-tick.</p>
 
 <h3>Activating Debug Mode</h3>
-<p>Click the <strong>🐛 Debug</strong> button in the battle controls bar (or press <kbd>D</kbd>). Playback pauses automatically. Use <strong>◀ ▶</strong> to step one tick at a time; the panel updates immediately.</p>
+<p>Click the <strong>🐛 Debug</strong> button in the battle controls bar (or press <kbd>D</kbd>). Playback pauses automatically. The panel has its own step-control strip:</p>
+<pre style="font-size:12px">⏮ Start   ◀ Prev   tick N / total   Next ▶   ⏭ End</pre>
+<p>Click <strong>Next ▶</strong> or <strong>◀ Prev</strong> to advance or rewind one tick at a time. The keyboard shortcuts <kbd>←</kbd> and <kbd>→</kbd> also work. Click <strong>🐛 Debug</strong> again (or press <kbd>D</kbd>) to dismiss the panel and resume normal playback.</p>
+
+<h3>Selecting a Robot</h3>
+<p>A tab bar shows one button per robot, coloured with that robot's arena colour. Click a tab to view that robot's registers. Robots that have been destroyed are marked with a ✕. The first robot is selected by default.</p>
 
 <h3>What the Panel Shows</h3>
 <table>
