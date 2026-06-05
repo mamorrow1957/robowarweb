@@ -509,6 +509,65 @@ test('ROBOTS (TEAMMATES) sensor counts all alive robots including self', async (
   }
 });
 
+// ── Robot–robot collision ─────────────────────────────────────────────────────
+
+test('stationary robot does not move when rammed by another robot', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    const { compile } = await import('/src/engine/compiler.js');
+    const { CombatEngine } = await import('/src/engine/combat.js');
+    // Rammer charges right at max speed; Stillbot does nothing
+    const { bytecode: bcRam }  = compile('LOOP\n5 THRUSTX\nPOOL');
+    const { bytecode: bcStill } = compile('LOOP POOL');
+    const robots = [
+      { id: 'rammer', bytecode: bcRam,
+        hardware: { armor: 2, shield: 0, weapon: 'none', engine: 3, energy: 1, cpu: 2, cooling: 0, radar: 0 },
+        team: 0 },
+      { id: 'still',  bytecode: bcStill,
+        hardware: { armor: 2, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 },
+        team: 1 },
+    ];
+    // Force the two robots to start close together on the same horizontal axis
+    const engine = new CombatEngine({ robots, arenaWidth: 300, arenaHeight: 300, tickLimit: 60, seed: 99 });
+    // Manually place them: rammer on the left, stillbot just to the right
+    engine.robots[0].x = 80; engine.robots[0].y = 150;
+    engine.robots[1].x = 220; engine.robots[1].y = 150;
+    const { frames } = engine.simulate();
+    const stillFrames = frames.map(f => f.robots.find(r => r.id === 'still'));
+    const startX = stillFrames[0].x;
+    const maxDrift = Math.max(...stillFrames.map(f => Math.abs(f.x - startX)));
+    return { startX, maxDrift };
+  });
+  // Stillbot should not drift more than one robot-radius worth of position correction
+  expect(result.maxDrift).toBeLessThan(20);
+});
+
+// ── Tick-limit result attached to last frame ──────────────────────────────────
+
+test('tick-limit battle has result on the last frame', async ({ page }) => {
+  // Both robots do nothing — no kills, battle runs to tick limit
+  const r1 = await makeCombatRobot(page, 'LOOP POOL', { id: 'r1', name: 'A', team: 0 });
+  const r2 = await makeCombatRobot(page, 'LOOP POOL', { id: 'r2', name: 'B', team: 1 });
+  const { frames, result } = await runBattle(page, [r1, r2], { tickLimit: 50 });
+  expect(result.reason).toBe('tick limit');
+  // The last frame must carry the result so the UI can display it via frame.result
+  const lastFrame = frames[frames.length - 1];
+  expect(lastFrame.result).not.toBeNull();
+  expect(lastFrame.result.reason).toBe('tick limit');
+});
+
+test('tick-limit winner is the robot with the most armor', async ({ page }) => {
+  // r2 has more armor (level 3 = 75 HP) vs r1 (level 0 = 15 HP), neither fires
+  const r1 = await makeCombatRobot(page, 'LOOP POOL',
+    { id: 'r1', name: 'Weak',   team: 0,
+      hardware: { armor: 0, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } });
+  const r2 = await makeCombatRobot(page, 'LOOP POOL',
+    { id: 'r2', name: 'Strong', team: 1,
+      hardware: { armor: 3, shield: 0, weapon: 'none', engine: 0, energy: 0, cpu: 0, cooling: 0, radar: 0 } });
+  const { result } = await runBattle(page, [r1, r2], { tickLimit: 10 });
+  expect(result.reason).toBe('tick limit');
+  expect(result.winnerId).toBe('r2');
+});
+
 // ── v0.5 SCAN offset ─────────────────────────────────────────────────────────
 
 test('SCAN offset shifts radar detection direction', async ({ page }) => {

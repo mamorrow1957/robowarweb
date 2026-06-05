@@ -120,9 +120,284 @@
   }
   .badge.new { background: #1a3a1a; color: var(--green); border-color: var(--green); }
   .section-anchor { color: inherit; text-decoration: none; }
+
+  /* ── Cover page ─────────────────────────────────────────────────── */
+  .cover-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, #07090e 0%, #0d1117 50%, #111826 100%);
+    position: relative;
+    text-align: center;
+    padding: 80px 40px 100px;
+    overflow: hidden;
+  }
+  /* Subtle arena-grid background texture */
+  .cover-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(88,166,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,166,255,0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+  /* Radial glow behind the title */
+  .cover-page::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -60%);
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(ellipse at center,
+      rgba(88,166,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cover-arena {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 36px;
+    filter: drop-shadow(0 0 24px rgba(88,166,255,0.25));
+  }
+  .cover-title {
+    position: relative;
+    z-index: 1;
+    font-size: 5.5em;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: -3px;
+    line-height: 1;
+    text-shadow:
+      0 0 60px rgba(88,166,255,0.35),
+      0 0 120px rgba(88,166,255,0.15);
+    margin: 0 0 12px;
+  }
+  .cover-doc-title {
+    position: relative;
+    z-index: 1;
+    font-size: 1.5em;
+    font-weight: 300;
+    color: var(--text);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    margin: 0 0 36px;
+  }
+  .cover-rule {
+    position: relative;
+    z-index: 1;
+    width: 160px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    margin: 0 auto 36px;
+  }
+  .cover-edition {
+    position: relative;
+    z-index: 1;
+    display: inline-block;
+    background: #0d1b2a;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 3px;
+    margin-bottom: 10px;
+  }
+  .cover-date {
+    position: relative;
+    z-index: 1;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .cover-credits {
+    position: absolute;
+    z-index: 1;
+    bottom: 36px;
+    left: 0;
+    right: 0;
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.9;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    margin: 0 40px;
+  }
+  .cover-credits a { color: var(--text-dim); }
+
+  /* ── Print button (visible on screen, hidden when printing) ── */
+  .print-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    z-index: 100;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .print-btn:hover { background: #79b8ff; }
+  @media print { .print-btn { display: none; } }
+
+  @media print {
+    /* ── Cover page ──
+       Avoid all height / vh tricks — they break across PDF tools.
+       Instead: block layout, padding for visual spacing, credits
+       pulled into normal flow so they are never clipped.           */
+    .cover-page {
+      display           : block;          /* no flex collapse in print */
+      page-break-after  : always;
+      break-after        : page;
+      min-height         : 0;
+      overflow           : visible;
+      background         : white !important;
+      text-align         : center;
+      padding            : 13% 48px 8%;   /* generous top / bottom space */
+      -webkit-print-color-adjust : exact;
+      print-color-adjust          : exact;
+    }
+    /* Hide CSS-only decoration (grid, glow) */
+    .cover-page::before,
+    .cover-page::after { display: none; }
+
+    /* Arena illustration */
+    .cover-arena {
+      display      : block;
+      margin       : 0 auto 32px;
+      filter       : none !important;
+    }
+
+    /* All text dark on white */
+    .cover-title {
+      color       : #0f3460 !important;
+      text-shadow : none    !important;
+      font-size   : 4.5em;
+    }
+    .cover-doc-title { color: #1a1a2e !important; margin-bottom: 28px; }
+    .cover-rule      { background: #0f3460 !important; margin-bottom: 28px; }
+    .cover-edition   {
+      background   : transparent !important;
+      color        : #0f3460    !important;
+      border-color : #0f3460    !important;
+    }
+    .cover-date { color: #555 !important; margin-top: 8px; margin-bottom: 0; }
+
+    /* Pull credits out of absolute positioning into normal flow */
+    .cover-credits {
+      position         : static !important;
+      margin           : 40px 0 0    !important;
+      border-top       : 1px solid #ccc !important;
+      padding-top      : 16px;
+      color            : #666         !important;
+    }
+    .cover-credits a { color: #0f3460 !important; }
+
+    /* Force the main content to always start on a fresh page,
+       independent of whether the cover page break fires.      */
+    .wrapper {
+      padding-top    : 20px;
+      break-before   : page;
+      page-break-before : always;
+    }
+  }
 </style>
 </head>
 <body>
+
+<!-- ── Cover Page ─────────────────────────────────────────────────────── -->
+<div class="cover-page">
+
+  <!-- Miniature arena illustration -->
+  <div class="cover-arena">
+    <svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="cg" width="22" height="22" patternUnits="userSpaceOnUse">
+          <path d="M 22 0 L 0 0 0 22" fill="none" stroke="#1a2030" stroke-width="0.6"/>
+        </pattern>
+        <radialGradient id="rg1" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff4757" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#ff4757" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="rg2" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#2ed573" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#2ed573" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- Arena floor -->
+      <rect width="220" height="220" fill="#0a0e14"/>
+      <rect width="220" height="220" fill="url(#cg)"/>
+      <!-- Arena wall -->
+      <rect x="6" y="6" width="208" height="208" fill="none" stroke="#30363d" stroke-width="2" rx="4"/>
+      <rect x="8" y="8" width="204" height="204" fill="none" stroke="#1e2840" stroke-width="1" rx="3"/>
+
+      <!-- Robot A shield glow + body -->
+      <circle cx="65" cy="110" r="22" fill="url(#rg1)"/>
+      <circle cx="65" cy="110" r="15" fill="none" stroke="rgba(88,166,255,0.35)" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <circle cx="65" cy="110" r="9" fill="#ff4757"/>
+      <circle cx="65" cy="110" r="9" fill="none" stroke="#ff7788" stroke-width="1"/>
+      <!-- Aim line A -->
+      <line x1="65" y1="110" x2="108" y2="88" stroke="#ff4757" stroke-width="1.5" opacity="0.6"/>
+      <!-- HP bar A -->
+      <rect x="53" y="125" width="24" height="3" rx="1.5" fill="#1a2030"/>
+      <rect x="53" y="125" width="18" height="3" rx="1.5" fill="#3fb950"/>
+
+      <!-- Robot B body -->
+      <circle cx="155" cy="110" r="22" fill="url(#rg2)"/>
+      <circle cx="155" cy="110" r="9" fill="#2ed573"/>
+      <circle cx="155" cy="110" r="9" fill="none" stroke="#50f090" stroke-width="1"/>
+      <!-- Aim line B -->
+      <line x1="155" y1="110" x2="112" y2="88" stroke="#2ed573" stroke-width="1.5" opacity="0.6"/>
+      <!-- HP bar B -->
+      <rect x="143" y="125" width="24" height="3" rx="1.5" fill="#1a2030"/>
+      <rect x="143" y="125" width="12" height="3" rx="1.5" fill="#e3b341"/>
+
+      <!-- Projectiles in flight -->
+      <circle cx="98" cy="98" r="2.5" fill="white" opacity="0.9"/>
+      <circle cx="112" cy="93" r="2.5" fill="white" opacity="0.65"/>
+      <circle cx="125" cy="89" r="2" fill="white" opacity="0.4"/>
+      <!-- Missile -->
+      <ellipse cx="89" cy="155" rx="3.5" ry="2" fill="#ffa657" opacity="0.9" transform="rotate(-35 89 155)"/>
+      <line x1="86" y1="157" x2="80" y2="163" stroke="#ffa657" stroke-width="1" opacity="0.4"/>
+
+      <!-- Corner tick marks -->
+      <line x1="6" y1="20"  x2="6"  y2="6"  stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="6" y1="6"   x2="20" y2="6"  stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="214" y1="20"  x2="214" y2="6"  stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="214" y1="6"   x2="200" y2="6"  stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="6"   y1="200" x2="6"   y2="214" stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="6"   y1="214" x2="20"  y2="214" stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="214" y1="200" x2="214" y2="214" stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+      <line x1="214" y1="214" x2="200" y2="214" stroke="#58a6ff" stroke-width="1.5" opacity="0.4"/>
+    </svg>
+  </div>
+
+  <h1 class="cover-title">RoboWar</h1>
+  <p class="cover-doc-title">Programmer's Guide</p>
+  <div class="cover-rule"></div>
+  <span class="cover-edition">Web Edition · v1.0 + v0.5 Extensions</span>
+  <p class="cover-date">May 2026</p>
+
+  <div class="cover-credits">
+    Web edition by Michael Morrow &nbsp;·&nbsp;
+    Built with <a href="https://claude.ai/code">Claude Code</a><br>
+    Based on <em>RoboWar</em> by Rod McFarland (1989–1994)
+  </div>
+</div>
+
 <div class="wrapper">
 
 <h1>RoboWar Programmer's Guide</h1>
@@ -141,6 +416,7 @@
     <li><a href="#examples">§8 Example Programs</a></li>
     <li><a href="#tips">§9 Strategy Tips</a></li>
     <li><a href="#debug">§10 Debug Mode</a></li>
+    <li><a href="#tournament">§11 Tournament Mode</a></li>
   </ul>
 </div>
 
@@ -546,6 +822,7 @@
   <li style="margin: 4px 0"><strong>BRAKE</strong> is fast deceleration (×0.80/tick). Use it before walls rather than fighting velocity with opposing thrust.</li>
   <li style="margin: 4px 0"><strong>Wall sensors</strong> (TOP/BOT/LEFT/RIGHT) give exact distances. A WALL interrupt with SETPARAM 60 gives you time to steer before hitting the border.</li>
   <li style="margin: 4px 0"><strong>COLLISION</strong> is reactive (fires after the bounce). Wall sensors are proactive — prefer them for smooth navigation.</li>
+  <li style="margin: 4px 0"><strong>Ramming</strong> deflects the moving robot but leaves a stationary one in place. A robot that does not apply thrust will not be pushed around by collisions — only weapon hits deal damage, and ramming deals none.</li>
 </ul>
 
 <h3>Interrupts</h3>
@@ -590,6 +867,65 @@
   <strong>Tip:</strong> Variables are only shown when they are non-zero. A slot that has never been written, or was last written as <code>0 STORE N</code>, will not appear.
 </div>
 
+<!-- §11 Tournament Mode -->
+<h2 id="tournament"><a class="section-anchor" href="#tournament">§11 Tournament Mode</a></h2>
+
+<p>The Tournament page lets you pit any selection of your robots against each other. Two formats are available.</p>
+
+<h3>Selecting Robots</h3>
+<p>Check any robots you want to include (minimum 2). The colour dot next to each name matches the colour that robot will use in the arena.</p>
+
+<h3>Choosing a Format</h3>
+
+<h4>🔄 Round Robin</h4>
+<p>Every robot fights every other robot exactly once. The robot with the most wins takes first place. Standings show total wins; ties are broken by the order robots appear in the list.</p>
+
+<h4>🏆 Double Elimination</h4>
+<p>A bracketed format where each robot must lose <em>twice</em> to be eliminated.</p>
+<ul style="margin: 8px 0 8px 20px; color: var(--text);">
+  <li style="margin: 4px 0"><strong>Winners Bracket (WB)</strong> — all robots start here. Lose once and you drop to the Losers Bracket.</li>
+  <li style="margin: 4px 0"><strong>Losers Bracket (LB)</strong> — one loss already. Lose here and you're eliminated.</li>
+  <li style="margin: 4px 0"><strong>Grand Final</strong> — the last WB survivor (0 losses) faces the last LB survivor (1 loss).</li>
+  <li style="margin: 4px 0"><strong>Bracket Reset</strong> — if the LB survivor wins the Grand Final, both players now have exactly one loss. They play once more; the winner of the reset is champion.</li>
+</ul>
+
+<p>Final standings reflect elimination order: the robot that survived the longest places highest. The champion is 1st, the Grand Final runner-up is 2nd, then positions fill in reverse elimination order.</p>
+
+<div class="note">
+  <strong>Note:</strong> With an odd number of robots in a bracket, one robot receives a <em>bye</em> that round — they advance without playing. Byes are given to the last robot in the seeding order that round.
+</div>
+
+<h3>Choosing a Mode</h3>
+
+<h4>📊 Results Only</h4>
+<p>All matches are simulated instantly and standings appear immediately. Use this for large brackets or when you just want final results.</p>
+
+<h4>👁 Watch Matches</h4>
+<p>Every match is replayed through the full Battle Viewer in order. Playback starts automatically. The title bar shows which match and round you are watching.</p>
+
+<ul style="margin: 8px 0 8px 20px; color: var(--text);">
+  <li style="margin: 4px 0"><strong>Next Match →</strong> — skip to the next match immediately.</li>
+  <li style="margin: 4px 0"><strong>🏆 View Results</strong> — shown on the final match; advances to standings.</li>
+  <li style="margin: 4px 0"><strong>Skip to Results</strong> — jump straight to the standings screen at any time.</li>
+</ul>
+
+<p>All standard viewer controls work during watch mode (pause, step, speed, mute, debug). The auto-advance timer is cancelled the moment you interact manually, so you can scrub through a match at your own pace.</p>
+
+<h3>Results Tables</h3>
+
+<p>After the tournament completes, two tables are shown:</p>
+<table>
+  <tr><th>Table</th><th>Round Robin columns</th><th>Double Elimination columns</th></tr>
+  <tr><td><strong>Standings</strong></td><td>#, Robot, Wins</td><td>Place (1st/2nd/…), Robot</td></tr>
+  <tr><td><strong>Match Results</strong></td><td>Robot A, Robot B, Winner, Reason</td><td>Round, Robot A, Robot B, Winner, Reason</td></tr>
+</table>
+
+<p>The Round column in double elimination results uses labels such as <code>WB Round 1</code>, <code>LB Round 2</code>, <code>Grand Final</code>, and <code>Grand Final (Reset)</code>, so you can trace exactly how each robot progressed through the bracket.</p>
+
+<div class="tip">
+  <strong>Tip:</strong> Use Results Only to quickly find which robot is strongest overall, then switch to Watch Matches to see the most interesting individual battles.
+</div>
+
 <hr style="border: none; border-top: 1px solid var(--border); margin: 40px 0 24px;">
 
 <p style="color: var(--text-dim); font-size: 12px;">
@@ -598,5 +934,19 @@
 </p>
 
 </div>
+
+<!-- Floating "Save as PDF" button -->
+<button class="print-btn" onclick="window.print()">⬇ Save as PDF</button>
+
+<script>
+  // When opened via the app's "download PDF" link (?print=1),
+  // automatically open the print dialog so Save as PDF is one click away.
+  if (new URLSearchParams(window.location.search).get('print') === '1') {
+    window.addEventListener('load', function () {
+      // Small delay lets fonts and SVG finish rendering before the dialog opens.
+      setTimeout(function () { window.print(); }, 400);
+    });
+  }
+</script>
 </body>
 </html>

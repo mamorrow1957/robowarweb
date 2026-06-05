@@ -113,6 +113,11 @@ export class CombatEngine {
       } else {
         this.result = { winnerId: null, winnerName: 'Draw', reason: 'all destroyed' };
       }
+      // Attach the tick-limit result to the last frame so frame?.result shows
+      // the winner (the UI reads frame.result, not the separate result return value).
+      if (frames.length > 0) {
+        frames[frames.length - 1].result = this.result;
+      }
     }
     return { frames, result: this.result };
   }
@@ -189,13 +194,34 @@ export class CombatEngine {
         if (dist < ROBOT_RADIUS * 2 && dist > 0.01) {
           const overlap = ROBOT_RADIUS * 2 - dist;
           const nx = dx / dist, ny = dy / dist;
-          a.x -= nx * overlap / 2;  a.y -= ny * overlap / 2;
-          b.x += nx * overlap / 2;  b.y += ny * overlap / 2;
+
+          // Determine which robot is approaching the other *before* any correction.
+          const aVn = a.vx * nx + a.vy * ny;  // + means A moving toward B
+          const bVn = b.vx * nx + b.vy * ny;  // - means B moving toward A
+          const aApproaching = aVn > 0;
+          const bApproaching = bVn < 0;
+
+          // Position correction: push only the approaching robot back so the
+          // stationary one is not displaced. If neither (e.g. spawned overlapping)
+          // or both are approaching, split the correction evenly.
+          if (aApproaching && !bApproaching) {
+            a.x -= nx * overlap;  a.y -= ny * overlap;
+          } else if (!aApproaching && bApproaching) {
+            b.x += nx * overlap;  b.y += ny * overlap;
+          } else {
+            a.x -= nx * overlap / 2;  a.y -= ny * overlap / 2;
+            b.x += nx * overlap / 2;  b.y += ny * overlap / 2;
+          }
+
+          // Velocity correction: cancel each robot's own approach velocity without
+          // transferring momentum to the other. A non-thrusting robot therefore
+          // stays still — only the actively-moving robot is deflected.
           const relV = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
           if (relV > 0) {
-            a.vx -= relV * nx; a.vy -= relV * ny;
-            b.vx += relV * nx; b.vy += relV * ny;
+            if (aVn > 0) { a.vx -= aVn * nx; a.vy -= aVn * ny; }
+            if (bVn < 0) { b.vx -= bVn * nx; b.vy -= bVn * ny; }
           }
+
           a.sensors.COLLISION = 1;
           b.sensors.COLLISION = 1;
         }
