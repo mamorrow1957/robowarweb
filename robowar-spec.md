@@ -573,7 +573,7 @@ Each tick the combat engine runs in this order:
    Apply braking: `vx *= 0.80` when `BRAKE=1`
 5. Move each robot by its velocity vector
 6. Resolve wall collisions (elastic bounce; set `COLLISION=1`)
-7. Resolve robot–robot collisions (overlap separation + elastic velocity exchange; set `COLLISION=1` on both)
+7. Resolve robot–robot collisions: separate overlapping robots by pushing the approaching robot back; cancel that robot's approach velocity without transferring it to the other robot — a non-thrusting robot therefore stays stationary when rammed; set `COLLISION=1` on both
 8. Move active projectiles; apply missile homing
 9. Resolve projectile–robot hits; apply damage
 10. Spawn new projectiles from fire commands (if not overheated)
@@ -762,9 +762,25 @@ When `autoAdvance` is true the timer is cancelled if the user manually pauses, s
 
 ### 6.6 Tournament Mode
 
-Round-robin only. All matches simulate synchronously on the main thread (no Web Worker). Results include per-match winners and a final standings table sorted by win count.
+All matches simulate synchronously on the main thread (no Web Worker). Two formats and two playback modes are available.
 
-**Mode toggle** (shown in the setup card before running):
+**Format selector:**
+
+| Format | Behaviour |
+|---|---|
+| 🔄 Round Robin | Every selected robot fights every other robot once. Final standings sorted by win count. |
+| 🏆 Double Elimination | Bracket play: robots move between a Winners Bracket (0 losses) and a Losers Bracket (1 loss); two losses eliminate. Concludes with a Grand Final and optional bracket reset. Final standings reflect elimination order (latest eliminated places highest). |
+
+**Double elimination bracket rules:**
+
+1. All robots start in the Winners Bracket.
+2. Each round: WB matches run first; losers drop to the Losers Bracket. LB matches run next; losers are eliminated (second loss).
+3. Robots with an odd-count bracket receive a bye that round.
+4. When WB and LB each have exactly one survivor, a **Grand Final** is played.
+5. If the LB survivor wins the Grand Final, a **bracket reset** is played (both players then have exactly one loss). The reset winner is champion.
+6. Final standings: 1st = champion, 2nd = runner-up, then reverse elimination order (last eliminated before the Grand Final = 3rd, and so on).
+
+**Mode toggle:**
 
 | Mode | Behaviour |
 |---|---|
@@ -773,18 +789,20 @@ Round-robin only. All matches simulate synchronously on the main thread (no Web 
 
 **Watch Matches flow:**
 
-1. Select robots, switch to Watch Matches, click **Run Round Robin**
-2. All matches are pre-simulated (standings computed); the viewer opens for Match 1 and **begins playing automatically**
-3. Page title shows `Tournament — Match N of M: A vs B`
+1. Select robots, choose format, switch to Watch Matches, click **Run Round Robin** or **Run Double Elimination**
+2. All matches are pre-simulated (standings computed); the viewer opens for the first match and **begins playing automatically**
+3. Page title shows `Tournament — Match N of M: A vs B` (Round Robin) or `Tournament — WB Round 1: A vs B` (Double Elimination)
 4. When playback finishes, the next match loads and plays automatically after a **1.5 s pause** (so the result banner is visible)
 5. Header buttons available during each match:
-   - **Skip Match →** — immediately advance to the next match (last match shows **🏆 View Results**)
+   - **Next Match →** — immediately advance to the next match (last match shows **🏆 View Results**)
    - **Skip to Results** — jump directly to the standings screen at any time
 6. After all matches complete (or on skip), the standings and match results tables are shown with a **← New Tournament** button
 
 The viewer's standard controls (pause, step, speed, mute) remain fully functional during watch mode — the user can pause, scrub, or change speed freely; the auto-advance timer is cancelled whenever the user interacts manually.
 
-**v2 (not yet implemented):** Single elimination, double elimination, server-side simulation for large brackets.
+**Double elimination results table** includes a Round column with labels such as `WB Round 1`, `LB Round 2`, `Grand Final`, and `Grand Final (Reset)`.
+
+**v2 (not yet implemented):** Single elimination, server-side simulation for large brackets.
 
 ### 6.7 Leaderboard
 
@@ -958,18 +976,18 @@ tests/
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (275 total)
+### 9.3 Test Counts (406 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
-| `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
-| `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
+| `navigation.spec.js` | 26 | Splash page, credits, dismiss flow, nav routing, Docs link |
+| `battle.spec.js` | 40 | Battle setup UI, viewer controls, speed buttons, robot stats, mute, debug mode, winner display |
 | `editor.spec.js` | 22 | Hardware panel, code editor, save/compile, error display |
 | `engine/compiler.spec.js` | 98 | All opcodes, labels, #DEFINE macros, error cases, v0.5 instructions |
-| `engine/vm.spec.js` | 107 | Stack operations, arithmetic, control flow, registers, trig, interrupts |
-| `engine/combat.spec.js` | 37 | Spawn, physics, projectiles, damage, shield, wall sensors, interrupts |
+| `engine/vm.spec.js` | 111 | Stack operations, arithmetic, control flow, registers, trig, interrupts |
+| `engine/combat.spec.js` | 41 | Spawn, physics, projectiles, damage, shield, wall sensors, interrupts, tick-limit result, collision |
 | `leaderboard.spec.js` | 16 | ELO display, rated matches, column layout |
-| `tournament.spec.js` | 26 | Robot selection, round-robin, standings, mode toggle, watch mode flow |
+| `tournament.spec.js` | 40 | Robot selection, round-robin, double elimination, format/mode toggle, watch mode flow |
 | `robots.spec.js` | 12 | Robot list CRUD, color dot, editor navigation |
 
 ### 9.4 Shared Helpers (`tests/helpers.js`)
@@ -1006,4 +1024,4 @@ tests/
 | 6 | Tick rate for real-time spectating? | **Deferred** | Not applicable until v2 backend is implemented |
 | 7 | Maximum program length? | **Open** | No hard limit in v1; stack capped at 256 entries; bytecode length unconstrained |
 | 8 | `.rw` file import in editor? | **Resolved** | Import and export both implemented in v1.1 |
-| 9 | Tournament formats beyond round robin? | **Open** | Single and double elimination deferred to v2 |
+| 9 | Tournament formats beyond round robin? | **Resolved** | Double elimination implemented in v1.1; single elimination deferred to v2 |

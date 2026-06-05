@@ -27,9 +27,10 @@ test("splash page has Programmer's Guide link", async ({ page }) => {
 
 test("splash page has Programmer's Guide download link", async ({ page }) => {
   await page.goto('/');
-  const dl = page.locator('a[download][href*=".pdf"]').first();
+  // Download link now opens the guide with ?print=1 (auto-triggers print dialog)
+  // instead of serving a static PDF file.
+  const dl = page.locator('a[href*="programmer-guide"][href*="print=1"]').first();
   await expect(dl).toBeVisible();
-  await expect(dl).toHaveAttribute('download');
 });
 
 test('Enter the Arena dismisses splash and shows nav', async ({ page }) => {
@@ -96,8 +97,8 @@ test('nav bar has Docs link', async ({ page }) => {
 test('nav bar has Docs download link', async ({ page }) => {
   const dl = page.locator('.nav-docs-download');
   await expect(dl).toBeVisible();
-  await expect(dl).toHaveAttribute('download');
-  await expect(dl).toHaveAttribute('href', /\.pdf/);
+  // Link opens the guide with ?print=1 to auto-trigger the print dialog
+  await expect(dl).toHaveAttribute('href', /programmer-guide.*print=1/);
 });
 
 test('page title is RoboWar Web', async ({ page }) => {

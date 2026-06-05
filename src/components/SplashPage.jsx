@@ -35,8 +35,9 @@ export default function SplashPage({ onEnter }) {
               Programmer's Guide
             </a>
             <a
-              href="/RoboWar-Programmer-Guide.pdf"
-              download="RoboWar-Programmer-Guide.pdf"
+              href="/programmer-guide.html?print=1"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{ fontSize: 12, color: 'var(--text-dim)', textDecoration: 'none', opacity: 0.7 }}
             >
               ⬇ download PDF
