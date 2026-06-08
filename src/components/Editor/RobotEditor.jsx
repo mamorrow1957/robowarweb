@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getRobotById, saveRobot, newRobotId } from '../../storage.js';
+import { getRobotById, saveRobot, newRobotId } from "../../storage.js";
+import { saveRobotToAPI } from "../../apiStorage.js";
+import { isLoggedIn } from "../../auth.js";
 import { DEFAULT_HARDWARE, calcHardwareCost, HARDWARE_BUDGET } from '../../engine/hardware.js';
 import { compile } from '../../engine/compiler.js';
 import HardwarePanel from './HardwarePanel.jsx';
@@ -89,16 +91,18 @@ export default function RobotEditor({ robotId, navigate }) {
     setSaved(false);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!robot) return;
     saveRobot(robot);
+    if (isLoggedIn()) await saveRobotToAPI(robot);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   }
 
-  function handleBattle() {
+  async function handleBattle() {
     if (!robot) return;
     saveRobot(robot);
+    if (isLoggedIn()) await saveRobotToAPI(robot);
     navigate('battle-setup', { preselected: [robot.id] });
   }
 

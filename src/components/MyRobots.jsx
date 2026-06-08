@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { getRobots, deleteRobot, saveRobot, newRobotId } from '../storage.js';
+import { getRobotsFromAPI, saveRobotToAPI, deleteRobotFromAPI } from '../apiStorage.js';
 import { DEFAULT_HARDWARE, ROBOT_COLORS, calcHardwareCost } from '../engine/hardware.js';
 
 function parseRwFile(text) {
-  // Normalise line endings (CRLF → LF)
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let name = 'Imported Robot';
   let hardware = { ...DEFAULT_HARDWARE };
@@ -41,18 +41,38 @@ function parseRwFile(text) {
   return { name, hardware, program: programLines.join('\n') };
 }
 
-export default function MyRobots({ navigate }) {
-  const [robots, setRobots] = useState(() => getRobots());
+export default function MyRobots({ navigate, loggedIn }) {
+  const [robots, setRobots] = useState([]);
   const importRef = useRef(null);
 
-  function handleNew() {
+  useEffect(() => {
+    loadRobots();
+  }, [loggedIn]);
+
+  async function loadRobots() {
+    if (loggedIn) {
+      try {
+        setRobots(await getRobotsFromAPI());
+      } catch {
+        setRobots(getRobots());
+      }
+    } else {
+      setRobots(getRobots());
+    }
+  }
+
+  async function handleNew() {
     const robot = {
       id:       newRobotId(),
       name:     'New Robot',
       hardware: { ...DEFAULT_HARDWARE },
       program:  '; Write your program here\nLOOP\n  RADAR AIM\n  1 FIRE\nPOOL\n',
     };
-    saveRobot(robot);
+    if (loggedIn) {
+      await saveRobotToAPI(robot);
+    } else {
+      saveRobot(robot);
+    }
     navigate('editor', { robotId: robot.id });
   }
 
@@ -60,10 +80,15 @@ export default function MyRobots({ navigate }) {
     navigate('editor', { robotId: id });
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (!window.confirm('Delete this robot?')) return;
-    deleteRobot(id);
-    setRobots(getRobots());
+    if (loggedIn) {
+      await deleteRobotFromAPI(id);
+      setRobots(await getRobotsFromAPI());
+    } else {
+      deleteRobot(id);
+      setRobots(getRobots());
+    }
   }
 
   function handleBattle(id) {
@@ -78,15 +103,20 @@ export default function MyRobots({ navigate }) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const parsed = parseRwFile(ev.target.result);
       if (!parsed) {
         alert('Could not parse file — make sure it is a valid .rw robot file.');
         return;
       }
       const robot = { id: newRobotId(), ...parsed };
-      saveRobot(robot);
-      setRobots(getRobots());
+      if (loggedIn) {
+        await saveRobotToAPI(robot);
+        setRobots(await getRobotsFromAPI());
+      } else {
+        saveRobot(robot);
+        setRobots(getRobots());
+      }
       navigate('editor', { robotId: robot.id });
     };
     reader.onerror = () => alert('Failed to read file.');
@@ -109,6 +139,11 @@ export default function MyRobots({ navigate }) {
           <button className="btn primary" onClick={handleNew}>+ New Robot</button>
         </div>
       </div>
+      {!loggedIn && (
+        <p className="auth-nudge">
+          💾 <strong>Log in</strong> to save your robots to the cloud and access them from any device.
+        </p>
+      )}
       <div className="robot-list">
         {robots.map((r, i) => (
           <div key={r.id} className="robot-row">

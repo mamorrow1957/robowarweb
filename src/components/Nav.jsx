@@ -1,4 +1,5 @@
 import React from 'react';
+import { getUser, clearSession } from '../auth.js';
 
 const LINKS = [
   { id: 'robots',      label: 'My Robots'   },
@@ -7,7 +8,14 @@ const LINKS = [
   { id: 'leaderboard', label: 'Leaderboard' },
 ];
 
-export default function Nav({ page, navigate }) {
+export default function Nav({ page, navigate, onAuthChange }) {
+  const user = getUser();
+
+  function handleLogout() {
+    clearSession();
+    onAuthChange();
+  }
+
   return (
     <nav className="nav">
       <span className="nav-brand">RoboWar</span>
@@ -38,6 +46,16 @@ export default function Nav({ page, navigate }) {
         >
           ⬇
         </a>
+      </div>
+      <div className="nav-auth">
+        {user ? (
+          <>
+            <span className="nav-user">👤 {user}</span>
+            <button className="nav-btn" onClick={handleLogout}>Log Out</button>
+          </>
+        ) : (
+          <button className="nav-btn" onClick={() => navigate('login')}>Log In</button>
+        )}
       </div>
     </nav>
   );
