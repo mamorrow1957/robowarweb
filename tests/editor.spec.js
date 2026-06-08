@@ -115,6 +115,7 @@ test('saving a new robot adds it to the robot list', async ({ page }) => {
   await page.locator('.editor-name').fill('SavedBot');
   await page.locator('button', { hasText: 'Save' }).click();
   await page.locator('button', { hasText: '← Back' }).click();
+  await page.waitForSelector('.robot-name');
   const names = await page.locator('.robot-name').allTextContents();
   expect(names).toContain('SavedBot');
 });
@@ -135,6 +136,7 @@ test('saving edits to existing robot updates it in list', async ({ page }) => {
   await page.locator('.editor-name').fill('RenamedBot');
   await page.locator('button', { hasText: 'Save' }).click();
   await page.locator('button', { hasText: '← Back' }).click();
+  await page.waitForSelector('.robot-name');
   const names = await page.locator('.robot-name').allTextContents();
   expect(names).toContain('RenamedBot');
 });
