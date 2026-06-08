@@ -20,14 +20,20 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: npm ci
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: api
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run tests
         run: npm test
+        env:
+          JWT_SECRET: ci-test-secret
 
       - name: Upload test report
         if: always()
