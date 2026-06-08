@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.5 (DOPPLER, LOOK/SCAN, wall registers, CHRONON, interrupts, trig opcodes — fully implemented)
+**Version:** 0.6 (user accounts, server-side robot storage, JWT auth — fully implemented)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -39,7 +39,7 @@ RoboWar Web is a faithful browser-based recreation of the classic 1989 Macintosh
 - 3D graphics or physics
 - Mobile touch support (keyboard-centric editor is desktop-first)
 - Real-time streaming of live battles (replays are sufficient)
-- Backend server / online multiplayer (v1 uses localStorage; see §7)
+- Real-time multiplayer / live battle spectating (deferred to v2)
 
 ---
 
@@ -70,17 +70,19 @@ RoboWar Web is a faithful browser-based recreation of the classic 1989 Macintosh
 | **VM** | Execute bytecode on a per-robot stack machine each game tick |
 | **Combat Engine** | Move projectiles, apply damage, resolve collisions each tick |
 | **Renderer** | Draw arena state to Canvas 2D at up to 60 fps |
-| **localStorage** | Persist robot definitions and ELO ratings client-side (v1) |
+| **localStorage** | Persist guest robots, ELO ratings, and auth token client-side |
+| **Express API** | REST endpoints for auth and robot CRUD; runs on port 3001 |
+| **SQLite DB** | Server-side persistence for user accounts and robot definitions |
 
 The VM and Combat Engine run inside a **Web Worker** so the UI thread stays responsive during fast-forward and simulation. The worker simulates the entire battle and returns all frames at once; the viewer plays them back from the local frame buffer.
 
-### v2 Backend (not yet implemented)
+### v1 Backend (implemented in v0.6)
 
 ```
-Node.js / Express  +  PostgreSQL  +  Socket.io
+Node.js / Express  +  SQLite  +  JWT (bcryptjs)
 ```
 
-Planned for online matchmaking, persistent leaderboards, robot sharing, and real-time spectating.
+Deployed alongside the Nginx front-end server. Nginx proxies `/api/*` to the Express process on port 3001. The database file (`robowar.db`) lives on the server filesystem and persists across deployments. The service runs under systemd and restarts automatically on failure.
 
 ---
 
@@ -795,56 +797,50 @@ The viewer's standard controls (pause, step, speed, mute) remain fully functiona
 
 ---
 
-## 7. Networking & Multiplayer
+## 7. Networking & Backend
 
-> **v1 status:** All features in this section are **not implemented**. v1 uses localStorage for all persistence. This section describes the planned v2 backend.
+### 7.1 Authentication (implemented — v0.6)
 
-### 7.1 Asynchronous Matchmaking
+Users register with a **username and password** (minimum 6 characters). Passwords are hashed with **bcrypt** (salt rounds: 10). On successful login or registration the server issues a **JWT** (signed with `HS256`, 30-day expiry). The token is stored in `localStorage` under key `robowar_token`; the username under `robowar_user`.
 
-Battles are **asynchronous** — there is no real-time connection requirement. The server simulates battles in a background queue and stores replays. Players submit robots; the system runs ranked battles automatically.
+Guest mode is fully supported — users who have not logged in continue to use `localStorage` for robot storage and can use all battle/tournament features. A nudge banner on the My Robots page encourages guests to create an account.
 
-### 7.2 API Endpoints (v2)
+### 7.2 API Endpoints (implemented)
 
-```
-POST   /api/robots             — create robot
-GET    /api/robots/:id         — fetch robot definition
-PATCH  /api/robots/:id         — update robot program/hardware
-DELETE /api/robots/:id         — delete robot
+All endpoints are served at `/api/*` by the Express process; Nginx proxies them from the public HTTPS URL.
 
-POST   /api/battles            — queue a battle
-GET    /api/battles/:id        — fetch battle result + replay blob
-GET    /api/battles/:id/replay — download replay JSON
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | None | Create account; returns `{ token, username }` |
+| `POST` | `/api/auth/login` | None | Authenticate; returns `{ token, username }` |
+| `GET` | `/api/robots` | Bearer JWT | List all robots for authenticated user |
+| `PUT` | `/api/robots/:id` | Bearer JWT | Upsert (create or update) a robot |
+| `DELETE` | `/api/robots/:id` | Bearer JWT | Delete a robot |
 
-POST   /api/tournaments        — create tournament
-GET    /api/tournaments/:id    — fetch bracket + results
-POST   /api/tournaments/:id/enter — add robot to tournament
+Request bodies and responses use JSON. Auth-required endpoints return `401` if no token is provided or the token is invalid/expired.
 
-GET    /api/leaderboard        — paginated ELO rankings
-GET    /api/users/:id/robots   — list a user's public robots
-```
+### 7.3 Robot Storage Strategy
 
-### 7.3 Robot Sharing
+| User state | Read source | Write destination |
+|---|---|---|
+| Guest (not logged in) | `localStorage` | `localStorage` |
+| Logged in | REST API (`GET /api/robots`) | REST API + `localStorage` |
+
+The editor writes to both `localStorage` and the API when logged in, ensuring offline resilience and server persistence simultaneously.
+
+### 7.4 Robot Sharing
 
 **v1:** Export and import as `.rw` plain-text files. Both operations are available from the Robot Editor toolbar and from the My Robots list.
 
-**v2:** Share link — `robowar.example.com/robots/:id` — view-only page with read-only editor and battle button.
+**v2 (planned):** Share link — `robowar.morroweb.com/robots/:id` — view-only page with read-only editor and battle button.
 
-### 7.4 Authentication (v2)
+### 7.5 Multiplayer & Spectating (v2 — planned)
 
-- Email + password (bcrypt)
-- Optional OAuth via GitHub
-- JWT access token (1 hour) + refresh token (30 days) stored in `httpOnly` cookie
-- Guest mode: play locally without an account; battles are not rated
-
-### 7.5 Real-time Battle Spectating (v2)
-
-When two users trigger a live match simultaneously, the server uses Socket.io to push frame-by-frame battle events to both clients. The protocol emits delta state (moved robots, new projectiles, destroyed objects) rather than full arena snapshots.
-
----
+Online matchmaking, persistent leaderboards, and real-time battle spectating are deferred to a future version. The v2 backend is expected to add Socket.io for live frame streaming and server-side battle simulation for large tournaments.
 
 ## 8. Data Formats
 
-### 8.1 Robot Definition (JSON — localStorage)
+### 8.1 Robot Definition (JSON — localStorage and server API)
 
 ```json
 {
@@ -946,6 +942,7 @@ Run the suite: `npm test` (or `./node_modules/.bin/playwright test`)
 ```
 tests/
 ├── helpers.js              — shared utilities (loadApp, resetApp, seedRobots, …)
+├── auth.spec.js            — login/register modal, nav auth state, error cases
 ├── navigation.spec.js      — splash page, credits, nav bar, page routing
 ├── robots.spec.js          — My Robots list (CRUD, display)
 ├── editor.spec.js          — Robot Editor (hardware panel, code editor, save/compile)
@@ -958,10 +955,11 @@ tests/
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (275 total)
+### 9.3 Test Counts (~298 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
+| `auth.spec.js` | 23 | Login/register modal, nav auth state, nudge banner, error cases |
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
 | `editor.spec.js` | 22 | Hardware panel, code editor, save/compile, error display |

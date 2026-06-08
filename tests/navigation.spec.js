@@ -112,13 +112,11 @@ test('nav shows brand name', async ({ page }) => {
   await expect(page.locator('.nav-brand')).toHaveText('RoboWar');
 });
 
-test('nav shows all four links', async ({ page }) => {
-  const links = page.locator('.nav-btn');
-  await expect(links).toHaveCount(4);
-  await expect(links.nth(0)).toHaveText('My Robots');
-  await expect(links.nth(1)).toHaveText('Battle');
-  await expect(links.nth(2)).toHaveText('Tournament');
-  await expect(links.nth(3)).toHaveText('Leaderboard');
+test('nav shows all four navigation links', async ({ page }) => {
+  await expect(page.locator('.nav-btn', { hasText: 'My Robots' })).toBeVisible();
+  await expect(page.locator('.nav-btn', { hasText: 'Battle' })).toBeVisible();
+  await expect(page.locator('.nav-btn', { hasText: 'Tournament' })).toBeVisible();
+  await expect(page.locator('.nav-btn', { hasText: 'Leaderboard' })).toBeVisible();
 });
 
 test('default page is My Robots', async ({ page }) => {
