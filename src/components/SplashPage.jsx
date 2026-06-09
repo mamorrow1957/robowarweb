@@ -1,6 +1,9 @@
 import React from 'react';
+import { getUser, isLoggedIn } from '../auth.js';
 
-export default function SplashPage({ onEnter }) {
+export default function SplashPage({ onEnter, onLogin }) {
+  const user = getUser();
+
   return (
     <div className="splash">
       <div className="splash-bg" aria-hidden="true">
@@ -42,6 +45,16 @@ export default function SplashPage({ onEnter }) {
               ⬇ download PDF
             </a>
           </div>
+        </div>
+
+        <div className="splash-auth">
+          {user ? (
+            <p className="splash-auth-user">👤 Signed in as <strong>{user}</strong></p>
+          ) : (
+            <button className="splash-auth-link" onClick={onLogin}>
+              Log in to save your robots
+            </button>
+          )}
         </div>
 
         <p className="splash-hint">

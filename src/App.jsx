@@ -49,7 +49,7 @@ export default function App() {
   }
 
   if (showSplash) {
-    return <SplashPage onEnter={() => setShowSplash(false)} />;
+    return <SplashPage onEnter={() => setShowSplash(false)} onLogin={() => { setShowSplash(false); navigate("login"); }} />;
   }
 
   return (

@@ -783,3 +783,32 @@ body {
   color: var(--fg-dim);
   margin-bottom: 16px;
 }
+
+/* ── Splash auth ────────────────────────────────── */
+.splash-auth {
+  margin: 8px 0 4px;
+}
+
+.splash-auth-user {
+  font-size: 0.85em;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.splash-auth-link {
+  background: none;
+  border: 1px solid rgba(51,255,51,0.3);
+  color: var(--accent);
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  opacity: 0.8;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.splash-auth-link:hover {
+  opacity: 1;
+  border-color: var(--accent);
+}
