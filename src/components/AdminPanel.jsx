@@ -5,7 +5,8 @@ export default function AdminPanel({ navigate }) {
   const [users, setUsers]     = useState([]);
   const [error, setError]     = useState('');
   const [loading, setLoading] = useState(true);
-  const [resetPw, setResetPw] = useState({});   // { [id]: '' }
+  const [resetPw, setResetPw] = useState({});
+  const [editEmail, setEditEmail] = useState({});
   const [msg, setMsg]         = useState('');
 
   async function loadUsers() {
@@ -21,6 +22,8 @@ export default function AdminPanel({ navigate }) {
 
   useEffect(() => { loadUsers(); }, []);
 
+  function flash(m) { setMsg(m); setTimeout(() => setMsg(''), 3000); }
+
   async function ban(id)   { await apiFetch(`/api/admin/users/${id}/ban`,   { method: 'POST' }); loadUsers(); }
   async function unban(id) { await apiFetch(`/api/admin/users/${id}/unban`, { method: 'POST' }); loadUsers(); }
   async function del(id)   {
@@ -30,14 +33,27 @@ export default function AdminPanel({ navigate }) {
   }
   async function resetUserPw(id) {
     const pw = resetPw[id] || '';
-    if (pw.length < 6) { setMsg('Password must be at least 6 characters'); return; }
+    if (pw.length < 6) { flash('Password must be at least 6 characters'); return; }
     await apiFetch(`/api/admin/users/${id}/reset-password`, {
       method: 'POST',
       body: JSON.stringify({ newPassword: pw }),
     });
     setResetPw(p => ({ ...p, [id]: '' }));
-    setMsg('Password reset.');
-    setTimeout(() => setMsg(''), 3000);
+    flash('Password reset.');
+  }
+  async function saveEmail(id) {
+    const email = editEmail[id] || '';
+    try {
+      await apiFetch(`/api/admin/users/${id}/update-email`, {
+        method: 'POST',
+        body: JSON.stringify({ email: email || null }),
+      });
+      setEditEmail(e => ({ ...e, [id]: '' }));
+      flash('Email updated.');
+      loadUsers();
+    } catch (err) {
+      flash(err.message);
+    }
   }
 
   return (
@@ -61,11 +77,8 @@ export default function AdminPanel({ navigate }) {
           <tbody>
             {users.map(u => (
               <tr key={u.id} className={u.is_banned ? 'admin-row-banned' : ''}>
-                <td>
-                  {u.username}
-                  {u.is_admin ? ' 👑' : ''}
-                </td>
-                <td>{u.email || '—'}</td>
+                <td>{u.username}{u.is_admin ? ' 👑' : ''}</td>
+                <td>{u.email || <span style={{opacity:0.4}}>none</span>}</td>
                 <td>{u.created_at?.slice(0, 10)}</td>
                 <td>{u.is_banned ? 'Banned' : 'Active'}</td>
                 <td className="admin-actions">
@@ -86,6 +99,15 @@ export default function AdminPanel({ navigate }) {
                       onChange={e => setResetPw(p => ({ ...p, [u.id]: e.target.value }))}
                     />
                     <button onClick={() => resetUserPw(u.id)}>Reset PW</button>
+                  </div>
+                  <div className="admin-reset-pw">
+                    <input
+                      type="email"
+                      placeholder={u.email || 'Set email'}
+                      value={editEmail[u.id] || ''}
+                      onChange={e => setEditEmail(p => ({ ...p, [u.id]: e.target.value }))}
+                    />
+                    <button onClick={() => saveEmail(u.id)}>Set Email</button>
                   </div>
                 </td>
               </tr>

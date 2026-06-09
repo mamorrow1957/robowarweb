@@ -54,9 +54,13 @@ db.exec(`
     PRIMARY KEY (id, user_id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+  CREATE TABLE IF NOT EXISTS revoked_tokens (
+    jti        TEXT PRIMARY KEY,
+    expires_at TEXT NOT NULL
+  );
 `);
 
-// Migrate existing DBs before any queries that use new columns
+// Migrate existing DBs
 const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
 if (!cols.includes('is_admin'))           db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
 if (!cols.includes('is_banned'))          db.exec("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0");
@@ -65,19 +69,24 @@ if (!cols.includes('email'))              db.exec("ALTER TABLE users ADD COLUMN 
 if (!cols.includes('reset_token'))        db.exec("ALTER TABLE users ADD COLUMN reset_token TEXT");
 if (!cols.includes('reset_token_expiry')) db.exec("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT");
 
-// Seed admin account if it doesn't exist
+// Unique index on email (only non-null values)
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`);
+
+// Seed admin
 const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
 if (!adminExists) {
-  db.prepare(`INSERT INTO users (username, is_admin, password_set, password_hash)
-              VALUES ('admin', 1, 0, '')`).run();
+  db.prepare(`INSERT INTO users (username, is_admin, password_set, password_hash) VALUES ('admin', 1, 0, '')`).run();
   console.log('Admin account created — set password on first login.');
 }
 
+// Clean up expired revoked tokens on startup
+db.prepare("DELETE FROM revoked_tokens WHERE expires_at < datetime('now')").run();
+
+// ── Middleware ────────────────────────────────────────────────
 app.disable('x-powered-by');
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (curl, mobile apps, same-origin)
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
     cb(new Error('CORS: origin not allowed'));
   },
@@ -85,7 +94,6 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rate limiter for auth endpoints — 20 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -94,12 +102,26 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts, please try again later.' },
 });
 
+// Valid username: 2–32 chars, letters/digits/underscore/hyphen only
+const USERNAME_RE = /^[a-zA-Z0-9_-]{2,32}$/;
+function validateUsername(username) {
+  if (!username || !USERNAME_RE.test(username))
+    return 'Username must be 2–32 characters and contain only letters, numbers, _ or -';
+  return null;
+}
+
 // ── Auth middleware ───────────────────────────────────────────
 function auth(req, res, next) {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET);
+    // Check revocation list
+    if (payload.jti) {
+      const revoked = db.prepare('SELECT 1 FROM revoked_tokens WHERE jti = ?').get(payload.jti);
+      if (revoked) return res.status(401).json({ error: 'Token has been revoked' });
+    }
+    req.user = payload;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
@@ -112,19 +134,21 @@ function adminOnly(req, res, next) {
 }
 
 function issueToken(user) {
+  const jti = crypto.randomBytes(16).toString('hex');
   return jwt.sign(
-    { id: user.id, username: user.username, is_admin: user.is_admin },
+    { id: user.id, username: user.username, is_admin: user.is_admin, jti },
     JWT_SECRET, { expiresIn: '30d' }
   );
 }
 
-// Valid username: 2–32 chars, letters/digits/underscore/hyphen only
-const USERNAME_RE = /^[a-zA-Z0-9_-]{2,32}$/;
-
-function validateUsername(username) {
-  if (!username || !USERNAME_RE.test(username))
-    return 'Username must be 2–32 characters and contain only letters, numbers, _ or -';
-  return null;
+function userResponse(user, token) {
+  return {
+    token,
+    username: user.username,
+    is_admin: user.is_admin,
+    password_set: user.password_set,
+    has_email: !!user.email,
+  };
 }
 
 // ── Health ────────────────────────────────────────────────────
@@ -136,16 +160,23 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
   const usernameErr = validateUsername(username);
   if (usernameErr) return res.status(400).json({ error: usernameErr });
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (password.length < 6)    return res.status(400).json({ error: 'Password must be at least 6 characters' });
   if (password.length > 1000) return res.status(400).json({ error: 'Password too long' });
   if (username.toLowerCase() === 'admin') return res.status(409).json({ error: 'Username not available' });
+
+  // Check email uniqueness if provided
+  if (email) {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existing) return res.status(409).json({ error: 'An account with that email already exists' });
+  }
+
   try {
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(
       'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)'
     ).run(username, email || null, hash);
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
-    res.json({ token: issueToken(user), username: user.username, is_admin: 0, password_set: 1 });
+    res.json(userResponse(user, issueToken(user)));
   } catch {
     res.status(409).json({ error: 'Username already taken' });
   }
@@ -158,20 +189,25 @@ app.post('/api/auth/login', authLimiter, (req, res) => {
   if (!user) return res.status(401).json({ error: 'Invalid username or password' });
   if (user.is_banned) return res.status(403).json({ error: 'Your account has been banned.' });
 
-  // Admin first login — no password set yet
   if (user.is_admin && !user.password_set) {
-    return res.json({
-      token: issueToken(user),
-      username: user.username,
-      is_admin: 1,
-      password_set: 0,
-    });
+    return res.json(userResponse(user, issueToken(user)));
   }
 
   if (!bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
-  res.json({ token: issueToken(user), username: user.username, is_admin: user.is_admin, password_set: 1 });
+  res.json(userResponse(user, issueToken(user)));
+});
+
+// ── Logout ────────────────────────────────────────────────────
+app.post('/api/auth/logout', auth, (req, res) => {
+  if (req.user.jti) {
+    const expiry = new Date(req.user.exp * 1000).toISOString();
+    db.prepare('INSERT OR IGNORE INTO revoked_tokens (jti, expires_at) VALUES (?, ?)').run(req.user.jti, expiry);
+    // Clean up expired entries occasionally
+    db.prepare("DELETE FROM revoked_tokens WHERE expires_at < datetime('now')").run();
+  }
+  res.json({ ok: true });
 });
 
 // ── Change password ───────────────────────────────────────────
@@ -179,10 +215,9 @@ app.post('/api/auth/change-password', auth, (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!newPassword || newPassword.length < 6)
     return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  if (newPassword.length > 1000) return res.status(400).json({ error: 'Password too long' });
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-
-  // Admin setting password for first time skips current password check
   if (!(user.is_admin && !user.password_set)) {
     if (!currentPassword || !bcrypt.compareSync(currentPassword, user.password_hash))
       return res.status(401).json({ error: 'Current password is incorrect' });
@@ -193,21 +228,20 @@ app.post('/api/auth/change-password', auth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Forgot password — request reset ──────────────────────────
+// ── Forgot password ───────────────────────────────────────────
 app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-  // Always return success to prevent email enumeration
-  if (!user) return res.json({ ok: true });
+  if (!user) return res.json({ ok: true }); // prevent enumeration
 
   const token = crypto.randomBytes(32).toString('hex');
-  const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
-  db.prepare('UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?')
-    .run(token, expiry, user.id);
+  const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  db.prepare('UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?').run(token, expiry, user.id);
 
-  const resetUrl = `${SITE_URL}?reset=${token}`;
+  // Use hash fragment so token never appears in server logs or referrer headers
+  const resetUrl = `${SITE_URL}/#reset=${token}`;
   try {
     await mailer.sendMail({
       from: `"RoboWar" <${process.env.SMTP_USER}>`,
@@ -231,7 +265,8 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
 app.post('/api/auth/reset-password', (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
-  if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (newPassword.length < 6)    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (newPassword.length > 1000) return res.status(400).json({ error: 'Password too long' });
 
   const user = db.prepare('SELECT * FROM users WHERE reset_token = ?').get(token);
   if (!user || !user.reset_token_expiry || new Date(user.reset_token_expiry) < new Date())
@@ -240,7 +275,17 @@ app.post('/api/auth/reset-password', (req, res) => {
   const hash = bcrypt.hashSync(newPassword, 10);
   db.prepare('UPDATE users SET password_hash = ?, password_set = 1, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?')
     .run(hash, user.id);
+  res.json({ ok: true });
+});
 
+// ── Update email ──────────────────────────────────────────────
+app.post('/api/auth/update-email', auth, (req, res) => {
+  const { email } = req.body;
+  if (email) {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, req.user.id);
+    if (existing) return res.status(409).json({ error: 'An account with that email already exists' });
+  }
+  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email || null, req.user.id);
   res.json({ ok: true });
 });
 
@@ -275,7 +320,6 @@ app.get('/api/admin/users', auth, adminOnly, (req, res) => {
   res.json(users);
 });
 
-// ── Admin: ban / unban ────────────────────────────────────────
 app.post('/api/admin/users/:id/ban', auth, adminOnly, (req, res) => {
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.status(404).json({ error: 'User not found' });
@@ -289,7 +333,6 @@ app.post('/api/admin/users/:id/unban', auth, adminOnly, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Admin: reset user password ────────────────────────────────
 app.post('/api/admin/users/:id/reset-password', auth, adminOnly, (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || newPassword.length < 6)
@@ -299,7 +342,16 @@ app.post('/api/admin/users/:id/reset-password', auth, adminOnly, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Admin: delete user ────────────────────────────────────────
+app.post('/api/admin/users/:id/update-email', auth, adminOnly, (req, res) => {
+  const { email } = req.body;
+  if (email) {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, req.params.id);
+    if (existing) return res.status(409).json({ error: 'An account with that email already exists' });
+  }
+  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email || null, req.params.id);
+  res.json({ ok: true });
+});
+
 app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.status(404).json({ error: 'User not found' });
@@ -309,14 +361,7 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Update email ──────────────────────────────────────────────
-app.post('/api/auth/update-email', auth, (req, res) => {
-  const { email } = req.body;
-  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email || null, req.user.id);
-  res.json({ ok: true });
-});
-
-// ── Error handler — no stack traces to client ─────────────────
+// ── Error handler ─────────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   const status = err.status || err.statusCode || 500;

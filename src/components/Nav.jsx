@@ -1,5 +1,5 @@
 import React from 'react';
-import { getUser, clearSession, isAdmin } from '../auth.js';
+import { getUser, logout, isAdmin } from '../auth.js';
 
 const LINKS = [
   { id: 'robots',      label: 'My Robots'   },
@@ -12,8 +12,8 @@ export default function Nav({ page, navigate, onAuthChange }) {
   const user = getUser();
   const admin = isAdmin();
 
-  function handleLogout() {
-    clearSession();
+  async function handleLogout() {
+    await logout();
     onAuthChange();
   }
 
@@ -41,8 +41,9 @@ export default function Nav({ page, navigate, onAuthChange }) {
         </a>
         <a
           className="nav-docs-download"
-          href="/RoboWar-Programmer-Guide.pdf"
-          download="RoboWar-Programmer-Guide.pdf"
+          href="/programmer-guide.html?print=1"
+          target="_blank"
+          rel="noopener noreferrer"
           title="Download Programmer's Guide (PDF)"
         >
           ⬇
@@ -55,7 +56,7 @@ export default function Nav({ page, navigate, onAuthChange }) {
             {admin && (
               <button className="nav-btn nav-admin" onClick={() => navigate('admin')}>Admin</button>
             )}
-            <button className="nav-btn" onClick={() => navigate('change-password')}>Change PW</button>
+            <button className="nav-btn" onClick={() => navigate('account')}>Account</button>
             <button className="nav-btn" onClick={handleLogout}>Log Out</button>
           </>
         ) : (

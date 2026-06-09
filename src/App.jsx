@@ -9,9 +9,9 @@ import TournamentBrowser from './components/Tournament/TournamentBrowser.jsx';
 import Leaderboard from './components/Leaderboard/Leaderboard.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
-import ChangePasswordModal from './components/ChangePasswordModal.jsx';
+import AccountModal from './components/AccountModal.jsx';
 import ForgotPasswordModal from './components/ForgotPasswordModal.jsx';
-import { isLoggedIn, isAdmin } from './auth.js';
+import { isLoggedIn, isAdmin, saveSession } from './auth.js';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -21,10 +21,11 @@ export default function App() {
   const [resetToken, setResetToken] = useState(null);
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('reset');
-    if (token) {
-      setResetToken(token);
+    // Parse reset token from hash fragment (never sent to server, not in logs)
+    const hash = window.location.hash;
+    const match = hash.match(/[#&]reset=([^&]+)/);
+    if (match) {
+      setResetToken(match[1]);
       setShowSplash(false);
       window.history.replaceState({}, '', '/');
     }
@@ -63,13 +64,13 @@ export default function App() {
         return <ForgotPasswordModal onClose={() => navigate('login')} />;
       case 'set-password':
         return (
-          <ChangePasswordModal
+          <AccountModal
             isFirstLogin
             onClose={() => { setLoggedIn(isLoggedIn()); navigate('robots'); }}
           />
         );
-      case 'change-password':
-        return <ChangePasswordModal onClose={() => navigate('robots')} />;
+      case 'account':
+        return <AccountModal onClose={() => navigate('robots')} />;
       case 'admin':
         return isAdmin()
           ? <AdminPanel navigate={navigate} />
