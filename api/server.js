@@ -50,6 +50,15 @@ db.exec(`
   );
 `);
 
+// Migrate existing DBs before any queries that use new columns
+const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+if (!cols.includes('is_admin'))           db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
+if (!cols.includes('is_banned'))          db.exec("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0");
+if (!cols.includes('password_set'))       db.exec("ALTER TABLE users ADD COLUMN password_set INTEGER DEFAULT 1");
+if (!cols.includes('email'))              db.exec("ALTER TABLE users ADD COLUMN email TEXT");
+if (!cols.includes('reset_token'))        db.exec("ALTER TABLE users ADD COLUMN reset_token TEXT");
+if (!cols.includes('reset_token_expiry')) db.exec("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT");
+
 // Seed admin account if it doesn't exist
 const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
 if (!adminExists) {
@@ -57,15 +66,6 @@ if (!adminExists) {
               VALUES ('admin', 1, 0, '')`).run();
   console.log('Admin account created — set password on first login.');
 }
-
-// Add missing columns to existing DBs (migration)
-const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
-if (!cols.includes('is_admin'))      db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0");
-if (!cols.includes('is_banned'))     db.exec("ALTER TABLE users ADD COLUMN is_banned INTEGER DEFAULT 0");
-if (!cols.includes('password_set'))  db.exec("ALTER TABLE users ADD COLUMN password_set INTEGER DEFAULT 1");
-if (!cols.includes('email'))         db.exec("ALTER TABLE users ADD COLUMN email TEXT");
-if (!cols.includes('reset_token'))   db.exec("ALTER TABLE users ADD COLUMN reset_token TEXT");
-if (!cols.includes('reset_token_expiry')) db.exec("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT");
 
 app.use(cors());
 app.use(express.json());
