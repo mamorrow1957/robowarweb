@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
+import { rateLimit } from 'express-rate-limit';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import path from 'path';
@@ -13,6 +14,11 @@ const app = express();
 const PORT = 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
 const SITE_URL   = process.env.SITE_URL || 'http://localhost:5173';
+const ALLOWED_ORIGINS = [
+  'https://robowar.morroweb.com',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
 
 // ── Email ────────────────────────────────────────────────────
 const mailer = nodemailer.createTransport({
@@ -67,8 +73,26 @@ if (!adminExists) {
   console.log('Admin account created — set password on first login.');
 }
 
-app.use(cors());
+app.disable('x-powered-by');
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (curl, mobile apps, same-origin)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error('CORS: origin not allowed'));
+  },
+}));
+
 app.use(express.json());
+
+// Rate limiter for auth endpoints — 20 attempts per 15 minutes per IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+});
 
 // ── Auth middleware ───────────────────────────────────────────
 function auth(req, res, next) {
@@ -98,7 +122,7 @@ function issueToken(user) {
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
 // ── Register ──────────────────────────────────────────────────
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', authLimiter, (req, res) => {
   const { username, password, email } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
@@ -116,7 +140,7 @@ app.post('/api/auth/register', (req, res) => {
 });
 
 // ── Login ─────────────────────────────────────────────────────
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', authLimiter, (req, res) => {
   const { username, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user) return res.status(401).json({ error: 'Invalid username or password' });
@@ -158,7 +182,7 @@ app.post('/api/auth/change-password', auth, (req, res) => {
 });
 
 // ── Forgot password — request reset ──────────────────────────
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
 
@@ -278,6 +302,14 @@ app.post('/api/auth/update-email', auth, (req, res) => {
   const { email } = req.body;
   db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email || null, req.user.id);
   res.json({ ok: true });
+});
+
+// ── Error handler — no stack traces to client ─────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  const safe = status < 500 ? err.message : 'Internal server error';
+  res.status(status).json({ error: safe });
 });
 
 app.listen(PORT, () => console.log(`RoboWar API running on port ${PORT}`));
