@@ -25,10 +25,13 @@ export default defineConfig({
       timeout: 10_000,
     },
     {
-      command: 'node api/server.js',
+      command: 'node server.js',
+      cwd: 'api',
       url: 'http://localhost:3001/api/health',
       reuseExistingServer: !process.env.CI,
-      timeout: 10_000,
+      timeout: 15_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
       env: {
         JWT_SECRET: process.env.JWT_SECRET || 'dev-test-secret',
       },
