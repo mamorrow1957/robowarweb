@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.6 (user accounts, server-side robot storage, JWT auth — fully implemented)
+**Version:** 0.7 (admin account, password change, email password recovery — fully implemented)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -799,11 +799,15 @@ The viewer's standard controls (pause, step, speed, mute) remain fully functiona
 
 ## 7. Networking & Backend
 
-### 7.1 Authentication (implemented — v0.6)
+### 7.1 Authentication (implemented — v0.7)
 
-Users register with a **username and password** (minimum 6 characters). Passwords are hashed with **bcrypt** (salt rounds: 10). On successful login or registration the server issues a **JWT** (signed with `HS256`, 30-day expiry). The token is stored in `localStorage` under key `robowar_token`; the username under `robowar_user`.
+Users register with a **username and password** (minimum 6 characters). Passwords are hashed with **bcrypt** (salt rounds: 10). On successful login or registration the server issues a **JWT** (signed with `HS256`, 30-day expiry). The token is stored in `localStorage` under key `robowar_token`; the username under `robowar_user`; the admin flag under `robowar_is_admin`.
+
+An **admin account** (username `admin`) is seeded automatically on first server start with no password set (`password_set = 0`). When the admin logs in for the first time, the server returns `password_set: 0` in the login response and the frontend immediately redirects to a forced password-set screen before allowing any other navigation.
 
 Guest mode is fully supported — users who have not logged in continue to use `localStorage` for robot storage and can use all battle/tournament features. A nudge banner on the My Robots page encourages guests to create an account.
+
+**Banned users** receive a `403` response with the message "Your account has been banned." on login and cannot access the app.
 
 ### 7.2 API Endpoints (implemented)
 
@@ -811,13 +815,22 @@ All endpoints are served at `/api/*` by the Express process; Nginx proxies them 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | None | Create account; returns `{ token, username }` |
-| `POST` | `/api/auth/login` | None | Authenticate; returns `{ token, username }` |
+| `POST` | `/api/auth/register` | None | Create account; returns `{ token, username, is_admin, password_set }` |
+| `POST` | `/api/auth/login` | None | Authenticate; returns `{ token, username, is_admin, password_set }` |
+| `POST` | `/api/auth/change-password` | Bearer JWT | Change own password (current + new); first-admin skips current check |
+| `POST` | `/api/auth/forgot-password` | None | Send password-reset email (always returns 200 to prevent enumeration) |
+| `POST` | `/api/auth/reset-password` | None | Consume reset token, set new password |
+| `POST` | `/api/auth/update-email` | Bearer JWT | Update own email address |
 | `GET` | `/api/robots` | Bearer JWT | List all robots for authenticated user |
 | `PUT` | `/api/robots/:id` | Bearer JWT | Upsert (create or update) a robot |
 | `DELETE` | `/api/robots/:id` | Bearer JWT | Delete a robot |
+| `GET` | `/api/admin/users` | Bearer JWT + admin | List all user accounts |
+| `POST` | `/api/admin/users/:id/ban` | Bearer JWT + admin | Ban a user (cannot ban admin) |
+| `POST` | `/api/admin/users/:id/unban` | Bearer JWT + admin | Unban a user |
+| `POST` | `/api/admin/users/:id/reset-password` | Bearer JWT + admin | Force-set a user's password |
+| `DELETE` | `/api/admin/users/:id` | Bearer JWT + admin | Delete user and all their robots |
 
-Request bodies and responses use JSON. Auth-required endpoints return `401` if no token is provided or the token is invalid/expired.
+Request bodies and responses use JSON. Auth-required endpoints return `401` if no token is provided or the token is invalid/expired. Admin-only endpoints return `403` for non-admin tokens.
 
 ### 7.3 Robot Storage Strategy
 
@@ -942,6 +955,7 @@ Run the suite: `npm test` (or `./node_modules/.bin/playwright test`)
 ```
 tests/
 ├── helpers.js              — shared utilities (loadApp, resetApp, seedRobots, …)
+├── admin.spec.js           — forgot password, change password, admin nav, banned user
 ├── auth.spec.js            — login/register modal, nav auth state, error cases
 ├── navigation.spec.js      — splash page, credits, nav bar, page routing
 ├── robots.spec.js          — My Robots list (CRUD, display)
@@ -955,10 +969,11 @@ tests/
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (~298 total)
+### 9.3 Test Counts (~320 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
+| `admin.spec.js` | 22 | Forgot password flow, change password, admin nav visibility, banned-user error |
 | `auth.spec.js` | 23 | Login/register modal, nav auth state, nudge banner, error cases |
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
