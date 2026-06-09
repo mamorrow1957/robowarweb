@@ -812,3 +812,84 @@ body {
   opacity: 1;
   border-color: var(--accent);
 }
+
+/* ── Auth extras ─────────────────────────────────────────── */
+.auth-forgot {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  opacity: 0.7;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+.auth-forgot:hover { opacity: 1; }
+
+.auth-info {
+  color: #ffcc00;
+  font-size: 0.85em;
+  margin-bottom: 12px;
+}
+
+/* ── Admin panel ─────────────────────────────────────────── */
+.admin-panel {
+  padding: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.admin-panel h2 { color: var(--accent); margin-bottom: 16px; }
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+.admin-table th, .admin-table td {
+  border: 1px solid #333;
+  padding: 8px 12px;
+  text-align: left;
+}
+.admin-table th { background: #1a1a1a; color: var(--accent); }
+.admin-row-banned td { opacity: 0.5; }
+
+.admin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.admin-actions button {
+  background: #222;
+  border: 1px solid #555;
+  color: #ccc;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 0.8em;
+}
+.admin-actions button:hover { border-color: var(--accent); color: var(--accent); }
+.admin-delete { border-color: #a00 !important; color: #f66 !important; }
+.admin-delete:hover { background: #3a0000 !important; }
+
+.admin-reset-pw { display: flex; gap: 4px; }
+.admin-reset-pw input {
+  background: #111;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  width: 120px;
+}
+
+.admin-msg {
+  background: #0a3;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 0.85em;
+}
+
+.nav-admin {
+  border-color: #fa0 !important;
+  color: #fa0 !important;
+}

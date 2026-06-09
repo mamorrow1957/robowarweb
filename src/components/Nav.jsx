@@ -1,5 +1,5 @@
 import React from 'react';
-import { getUser, clearSession } from '../auth.js';
+import { getUser, clearSession, isAdmin } from '../auth.js';
 
 const LINKS = [
   { id: 'robots',      label: 'My Robots'   },
@@ -10,6 +10,7 @@ const LINKS = [
 
 export default function Nav({ page, navigate, onAuthChange }) {
   const user = getUser();
+  const admin = isAdmin();
 
   function handleLogout() {
     clearSession();
@@ -51,6 +52,10 @@ export default function Nav({ page, navigate, onAuthChange }) {
         {user ? (
           <>
             <span className="nav-user">👤 {user}</span>
+            {admin && (
+              <button className="nav-btn nav-admin" onClick={() => navigate('admin')}>Admin</button>
+            )}
+            <button className="nav-btn" onClick={() => navigate('change-password')}>Change PW</button>
             <button className="nav-btn" onClick={handleLogout}>Log Out</button>
           </>
         ) : (

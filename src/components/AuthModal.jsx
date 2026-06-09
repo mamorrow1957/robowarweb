@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
-import { login, register } from '../auth.js';
+import { login, register, saveSession } from '../auth.js';
+import { apiFetch } from '../auth.js';
 
-export default function AuthModal({ onSuccess }) {
-  const [mode, setMode]       = useState('login'); // 'login' | 'register'
+export default function AuthModal({ onSuccess, onForgotPassword, onNeedSetPassword }) {
+  const [mode, setMode]         = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState('');
+  const [loading, setLoading]   = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
+      let data;
       if (mode === 'login') {
-        await login(username, password);
+        data = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password }),
+        });
+        saveSession(data.token, data.username, data.is_admin);
+        if (data.password_set === 0) {
+          onNeedSetPassword();
+          return;
+        }
       } else {
-        await register(username, password);
+        data = await register(username, password);
       }
       onSuccess();
     } catch (err) {
@@ -55,6 +65,11 @@ export default function AuthModal({ onSuccess }) {
             {loading ? 'Please wait…' : mode === 'login' ? 'Log In' : 'Create Account'}
           </button>
         </form>
+        {mode === 'login' && onForgotPassword && (
+          <button className="auth-forgot" onClick={onForgotPassword}>
+            Forgot password?
+          </button>
+        )}
         <button
           className="auth-switch"
           onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}
