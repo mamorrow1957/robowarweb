@@ -41,16 +41,16 @@ jobs:
       - name: Notify Slack on success
         if: success()
         run: |
-          curl -s -X POST -H 'Content-type: application/json' \
+          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
             --data '{"text":":white_check_mark: *RoboWar CI passed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}"}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
 
       - name: Notify Slack on failure
         if: failure()
         run: |
-          curl -s -X POST -H 'Content-type: application/json' \
+          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
             --data '{"text":":x: *RoboWar CI failed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}\nSee: https://github.com/mamorrow1957/robowarweb/actions"}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
 
       - name: Upload test report
         if: always()
@@ -76,13 +76,13 @@ jobs:
       - name: Notify Slack on deploy success
         if: success()
         run: |
-          curl -s -X POST -H 'Content-type: application/json' \
+          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
             --data '{"text":":rocket: *RoboWar deployed successfully* to https://robowar.morroweb.com"}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
 
       - name: Notify Slack on deploy failure
         if: failure()
         run: |
-          curl -s -X POST -H 'Content-type: application/json' \
+          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
             --data '{"text":":fire: *RoboWar deploy failed* — check the server!"}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }}
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
