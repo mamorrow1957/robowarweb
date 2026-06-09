@@ -118,6 +118,15 @@ function issueToken(user) {
   );
 }
 
+// Valid username: 2–32 chars, letters/digits/underscore/hyphen only
+const USERNAME_RE = /^[a-zA-Z0-9_-]{2,32}$/;
+
+function validateUsername(username) {
+  if (!username || !USERNAME_RE.test(username))
+    return 'Username must be 2–32 characters and contain only letters, numbers, _ or -';
+  return null;
+}
+
 // ── Health ────────────────────────────────────────────────────
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
@@ -125,8 +134,11 @@ app.get('/api/health', (_, res) => res.json({ ok: true }));
 app.post('/api/auth/register', authLimiter, (req, res) => {
   const { username, password, email } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  const usernameErr = validateUsername(username);
+  if (usernameErr) return res.status(400).json({ error: usernameErr });
   if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  if (username === 'admin') return res.status(409).json({ error: 'Username not available' });
+  if (password.length > 1000) return res.status(400).json({ error: 'Password too long' });
+  if (username.toLowerCase() === 'admin') return res.status(409).json({ error: 'Username not available' });
   try {
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(
