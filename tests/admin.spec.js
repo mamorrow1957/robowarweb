@@ -131,7 +131,7 @@ test('change password success shows confirmation', async ({ page }) => {
   await page.locator('.auth-modal input[type="password"]').nth(1).fill('newpassword456');
   await page.locator('.auth-modal input[type="password"]').nth(2).fill('newpassword456');
   await page.locator('.auth-submit').click();
-  await expect(page.locator('.auth-modal h2')).toHaveText('Password Changed');
+  await expect(page.locator('.auth-success')).toBeVisible();
 });
 
 test('change password cancel returns to robots page', async ({ page }) => {

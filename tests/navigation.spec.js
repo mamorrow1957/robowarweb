@@ -96,8 +96,8 @@ test('nav bar has Docs link', async ({ page }) => {
 test('nav bar has Docs download link', async ({ page }) => {
   const dl = page.locator('.nav-docs-download');
   await expect(dl).toBeVisible();
-  await expect(dl).toHaveAttribute('download');
-  await expect(dl).toHaveAttribute('href', /\.pdf/);
+  // Link opens guide with ?print=1 to trigger print dialog (no static PDF)
+  await expect(dl).toHaveAttribute('href', /programmer-guide.*print=1/);
 });
 
 test('page title is RoboWar Web', async ({ page }) => {
