@@ -195,7 +195,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user) return res.status(401).json({ error: 'Invalid username or password' });
   if (user.is_banned) return res.status(403).json({ error: 'Your account has been banned.' });
-  if (user.is_locked) return res.status(403).json({ error: 'Account locked due to too many failed login attempts. Please contact an administrator.' });
+
+  // Admin accounts are never locked out (would create an unrecoverable situation)
+  if (!user.is_admin) {
+    if (user.is_locked) return res.status(403).json({ error: 'Account locked due to too many failed login attempts. Please contact an administrator.' });
+  }
 
   // Admin first-login (no password set yet) — skip attempt tracking
   if (user.is_admin && !user.password_set) {
@@ -204,7 +208,8 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
   if (!bcrypt.compareSync(password, user.password_hash)) {
     const attempts = (user.login_attempts || 0) + 1;
-    if (attempts >= MAX_LOGIN_ATTEMPTS) {
+    // Only lock non-admin accounts
+    if (!user.is_admin && attempts >= MAX_LOGIN_ATTEMPTS) {
       db.prepare('UPDATE users SET login_attempts = ?, is_locked = 1 WHERE id = ?').run(attempts, user.id);
       // Notify admin
       const adminEmail = ADMIN_EMAIL || db.prepare("SELECT email FROM users WHERE is_admin = 1 LIMIT 1").get()?.email;
@@ -219,12 +224,16 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       }
       return res.status(403).json({ error: 'Account locked due to too many failed login attempts. Please contact an administrator.' });
     }
-    db.prepare('UPDATE users SET login_attempts = ? WHERE id = ?').run(attempts, user.id);
+    if (!user.is_admin) {
+      db.prepare('UPDATE users SET login_attempts = ? WHERE id = ?').run(attempts, user.id);
+    }
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 
-  // Successful login — reset attempt counter
-  db.prepare('UPDATE users SET login_attempts = 0 WHERE id = ?').run(user.id);
+  // Successful login — reset attempt counter (non-admin only)
+  if (!user.is_admin) {
+    db.prepare('UPDATE users SET login_attempts = 0 WHERE id = ?').run(user.id);
+  }
   res.json(userResponse(user, issueToken(user)));
 });
 
