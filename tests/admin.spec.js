@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loadApp } from './helpers.js';
 
-// Helper: register a fresh user and return their credentials
 async function registerUser(page, suffix) {
   const username = `testuser_${suffix}_${Date.now()}`;
   const password = 'password123';
@@ -20,6 +19,7 @@ test.beforeEach(async ({ page }) => {
     localStorage.removeItem('robowar_token');
     localStorage.removeItem('robowar_user');
     localStorage.removeItem('robowar_is_admin');
+    localStorage.removeItem('robowar_has_email');
   });
   await loadApp(page);
 });
@@ -76,10 +76,10 @@ test('forgot-password submitting shows confirmation', async ({ page }) => {
   await expect(page.locator('.auth-modal h2')).toHaveText('Email Sent');
 });
 
-// ── Change password ──────────────────────────────────────────
+// ── Account modal ────────────────────────────────────────────
 
 test('logged-in nav shows Account button', async ({ page }) => {
-  await registerUser(page, 'changepw');
+  await registerUser(page, 'acct1');
   await expect(page.locator('.nav-auth button', { hasText: 'Account' })).toBeVisible();
 });
 
@@ -87,22 +87,44 @@ test('logged-out nav does not show Account button', async ({ page }) => {
   await expect(page.locator('.nav-auth button', { hasText: 'Account' })).not.toBeVisible();
 });
 
-test('clicking Account shows account settings modal', async ({ page }) => {
-  await registerUser(page, 'changepw2');
+test('clicking Account shows Account Settings modal', async ({ page }) => {
+  await registerUser(page, 'acct2');
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
   await expect(page.locator('.auth-modal h2')).toHaveText('Account Settings');
 });
 
-test('change password form has current password field', async ({ page }) => {
-  await registerUser(page, 'changepw3');
+test('Account modal has Email and Password tabs', async ({ page }) => {
+  await registerUser(page, 'acct3');
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
-  await page.locator('.account-tab', { hasText: 'Password' }).click();
-  const inputs = page.locator('.auth-modal input[type="password"]');
-  await expect(inputs).toHaveCount(3);
+  await expect(page.locator('.account-tab', { hasText: 'Email' })).toBeVisible();
+  await expect(page.locator('.account-tab', { hasText: 'Password' })).toBeVisible();
 });
 
+test('Account modal Email tab has email input', async ({ page }) => {
+  await registerUser(page, 'acct4');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await expect(page.locator('.auth-modal input[type="email"]')).toBeVisible();
+});
+
+test('Account modal email update shows success message', async ({ page }) => {
+  await registerUser(page, 'acct5');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.auth-modal input[type="email"]').fill(`acct5_${Date.now()}@example.com`);
+  await page.locator('.auth-submit').click();
+  await expect(page.locator('.auth-success')).toBeVisible();
+});
+
+test('Account modal close returns to robots page', async ({ page }) => {
+  await registerUser(page, 'acct6');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.auth-switch', { hasText: 'Close' }).click();
+  await expect(page.locator('.page-title')).toHaveText('My Robots');
+});
+
+// ── Password change ──────────────────────────────────────────
+
 test('change password with wrong current password shows error', async ({ page }) => {
-  await registerUser(page, 'changepw4');
+  await registerUser(page, 'pw1');
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
   await page.locator('.account-tab', { hasText: 'Password' }).click();
   await page.locator('.auth-modal input[type="password"]').nth(0).fill('wrongpassword');
@@ -113,7 +135,7 @@ test('change password with wrong current password shows error', async ({ page })
 });
 
 test('change password with mismatched new passwords shows error', async ({ page }) => {
-  await registerUser(page, 'changepw5');
+  await registerUser(page, 'pw2');
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
   await page.locator('.account-tab', { hasText: 'Password' }).click();
   await page.locator('.auth-modal input[type="password"]').nth(0).fill('password123');
@@ -124,7 +146,7 @@ test('change password with mismatched new passwords shows error', async ({ page 
 });
 
 test('change password success shows confirmation', async ({ page }) => {
-  await registerUser(page, 'changepw6');
+  await registerUser(page, 'pw3');
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
   await page.locator('.account-tab', { hasText: 'Password' }).click();
   await page.locator('.auth-modal input[type="password"]').nth(0).fill('password123');
@@ -134,11 +156,68 @@ test('change password success shows confirmation', async ({ page }) => {
   await expect(page.locator('.auth-success')).toBeVisible();
 });
 
-test('change password cancel returns to robots page', async ({ page }) => {
-  await registerUser(page, 'changepw7');
+// ── Email nudge ──────────────────────────────────────────────
+
+test('email nudge is visible when logged in with no email', async ({ page }) => {
+  await registerUser(page, 'nudge1');
+  await expect(page.locator('.email-nudge')).toBeVisible();
+});
+
+test('email nudge is not visible when logged out', async ({ page }) => {
+  await expect(page.locator('.email-nudge')).not.toBeVisible();
+});
+
+test('email nudge disappears after setting email', async ({ page }) => {
+  await registerUser(page, 'nudge2');
+  await expect(page.locator('.email-nudge')).toBeVisible();
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.auth-modal input[type="email"]').fill(`nudge2_${Date.now()}@example.com`);
+  await page.locator('.auth-submit').click();
   await page.locator('.auth-switch', { hasText: 'Close' }).click();
-  await expect(page.locator('.page-title')).toHaveText('My Robots');
+  await expect(page.locator('.email-nudge')).not.toBeVisible();
+});
+
+test('email nudge links to Account modal', async ({ page }) => {
+  await registerUser(page, 'nudge3');
+  await page.locator('.nudge-link').click();
+  await expect(page.locator('.auth-modal h2')).toHaveText('Account Settings');
+});
+
+// ── Email uniqueness ─────────────────────────────────────────
+
+test('registering duplicate email shows error', async ({ page }) => {
+  const email = `dupe_${Date.now()}@example.com`;
+  // Register first user with email via Account modal
+  await registerUser(page, 'dupe1');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.auth-modal input[type="email"]').fill(email);
+  await page.locator('.auth-submit').click();
+  await expect(page.locator('.auth-success')).toBeVisible();
+  await page.locator('.auth-switch', { hasText: 'Close' }).click();
+  // Log out
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  // Register second user and try to use same email
+  await registerUser(page, 'dupe2');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.auth-modal input[type="email"]').fill(email);
+  await page.locator('.auth-submit').click();
+  await expect(page.locator('.auth-error')).toBeVisible();
+});
+
+// ── Server-side logout ───────────────────────────────────────
+
+test('after logout token is revoked and cannot be reused', async ({ page }) => {
+  await registerUser(page, 'revoke1');
+  // Capture the token before logout
+  const token = await page.evaluate(() => localStorage.getItem('robowar_token'));
+  // Log out (calls server-side revocation)
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  // Try using the old token directly against the API
+  const res = await page.evaluate(async (t) => {
+    const r = await fetch('/api/robots', { headers: { Authorization: `Bearer ${t}` } });
+    return r.status;
+  }, token);
+  expect(res).toBe(401);
 });
 
 // ── Admin nav ────────────────────────────────────────────────
@@ -155,8 +234,6 @@ test('logged-out user does not see Admin button in nav', async ({ page }) => {
 // ── Banned user ──────────────────────────────────────────────
 
 test('banned user sees ban message on login', async ({ page }) => {
-  // We can't ban via UI without admin, so test the error message format
-  // by intercepting the API response
   await page.route('/api/auth/login', route => {
     route.fulfill({
       status: 403,
