@@ -364,6 +364,15 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Test-only cleanup (disabled in production) ────────────────
+if (IS_TEST) {
+  app.delete('/api/test/cleanup', (req, res) => {
+    db.prepare('DELETE FROM robots WHERE user_id IN (SELECT id FROM users WHERE is_admin = 0)').run();
+    db.prepare('DELETE FROM users WHERE is_admin = 0').run();
+    res.json({ ok: true });
+  });
+}
+
 // ── Error handler ─────────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

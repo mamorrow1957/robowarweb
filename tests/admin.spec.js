@@ -1,5 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, request } from '@playwright/test';
 import { loadApp } from './helpers.js';
+
+test.afterAll(async () => {
+  const ctx = await request.newContext({ baseURL: 'http://localhost:3001' });
+  await ctx.delete('/api/test/cleanup');
+  await ctx.dispose();
+});
 
 async function registerUser(page, suffix) {
   const username = `testuser_${suffix}_${Date.now()}`;
