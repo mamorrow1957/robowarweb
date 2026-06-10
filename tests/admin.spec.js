@@ -253,3 +253,78 @@ test('banned user sees ban message on login', async ({ page }) => {
   await page.locator('.auth-submit').click();
   await expect(page.locator('.auth-error')).toContainText('banned');
 });
+
+// ── Account lockout ──────────────────────────────────────────
+
+test('account is locked after 5 failed login attempts', async ({ page }) => {
+  const { username, password } = await registerUser(page, 'locktest');
+  // Log out
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  // Attempt login with wrong password 5 times via API
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate(async ({ username }) => {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: 'wrongpassword' }),
+      });
+    }, { username });
+  }
+  // Now try the correct password — should be locked
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
+  await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="password"]').fill(password);
+  await page.locator('.auth-submit').click();
+  await expect(page.locator('.auth-error')).toContainText('locked');
+});
+
+test('unlock endpoint resets lock so user can log in again', async ({ page }) => {
+  const { username, password } = await registerUser(page, 'lockunlock');
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  // Trigger lockout via API
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate(async ({ username }) => {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: 'wrongpassword' }),
+      });
+    }, { username });
+  }
+  // Get admin token (admin first-login flow)
+  const adminToken = await page.evaluate(async () => {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: '' }),
+    });
+    const data = await r.json();
+    return data.token;
+  });
+  // Fetch user list to find id
+  const userId = await page.evaluate(async ({ token, username }) => {
+    const r = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } });
+    const users = await r.json();
+    return users.find(u => u.username === username)?.id;
+  }, { token: adminToken, username });
+  // Verify locked
+  const lockedStatus = await page.evaluate(async ({ token, id }) => {
+    const r = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } });
+    const users = await r.json();
+    return users.find(u => u.id === id)?.is_locked;
+  }, { token: adminToken, id: userId });
+  expect(lockedStatus).toBe(1);
+  // Unlock via admin API
+  await page.evaluate(async ({ token, id }) => {
+    await fetch(`/api/admin/users/${id}/unlock`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }, { token: adminToken, id: userId });
+  // User can now log in
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
+  await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="password"]').fill(password);
+  await page.locator('.auth-submit').click();
+  await expect(page.locator('.nav-user')).toContainText(username);
+});

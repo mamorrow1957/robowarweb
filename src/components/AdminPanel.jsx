@@ -24,8 +24,9 @@ export default function AdminPanel({ navigate }) {
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(''), 3000); }
 
-  async function ban(id)   { await apiFetch(`/api/admin/users/${id}/ban`,   { method: 'POST' }); loadUsers(); }
-  async function unban(id) { await apiFetch(`/api/admin/users/${id}/unban`, { method: 'POST' }); loadUsers(); }
+  async function ban(id)    { await apiFetch(`/api/admin/users/${id}/ban`,    { method: 'POST' }); loadUsers(); }
+  async function unban(id)  { await apiFetch(`/api/admin/users/${id}/unban`,  { method: 'POST' }); loadUsers(); }
+  async function unlock(id) { await apiFetch(`/api/admin/users/${id}/unlock`, { method: 'POST' }); loadUsers(); }
   async function del(id)   {
     if (!confirm('Delete this user and all their robots?')) return;
     await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
@@ -76,14 +77,15 @@ export default function AdminPanel({ navigate }) {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} className={u.is_banned ? 'admin-row-banned' : ''}>
+              <tr key={u.id} className={u.is_locked ? 'admin-row-locked' : u.is_banned ? 'admin-row-banned' : ''}>
                 <td>{u.username}{u.is_admin ? ' 👑' : ''}</td>
                 <td>{u.email || <span style={{opacity:0.4}}>none</span>}</td>
                 <td>{u.created_at?.slice(0, 10)}</td>
-                <td>{u.is_banned ? 'Banned' : 'Active'}</td>
+                <td>{u.is_locked ? `Locked (${u.login_attempts} attempts)` : u.is_banned ? 'Banned' : 'Active'}</td>
                 <td className="admin-actions">
                   {!u.is_admin && (
                     <>
+                      {u.is_locked && <button onClick={() => unlock(u.id)}>Unlock</button>}
                       {u.is_banned
                         ? <button onClick={() => unban(u.id)}>Unban</button>
                         : <button onClick={() => ban(u.id)}>Ban</button>

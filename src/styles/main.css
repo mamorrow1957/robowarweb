@@ -853,6 +853,7 @@ body {
 }
 .admin-table th { background: #1a1a1a; color: var(--accent); }
 .admin-row-banned td { opacity: 0.5; }
+.admin-row-locked td { background: #3a1a00; }
 
 .admin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .admin-actions button {
