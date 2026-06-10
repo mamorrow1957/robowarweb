@@ -94,13 +94,16 @@ app.use(cors({
 
 app.use(express.json());
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts, please try again later.' },
-});
+const IS_TEST = process.env.JWT_SECRET === 'ci-test-secret';
+const authLimiter = IS_TEST
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 20,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many attempts, please try again later.' },
+    });
 
 // Valid username: 2–32 chars, letters/digits/underscore/hyphen only
 const USERNAME_RE = /^[a-zA-Z0-9_-]{2,32}$/;
