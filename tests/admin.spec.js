@@ -78,31 +78,33 @@ test('forgot-password submitting shows confirmation', async ({ page }) => {
 
 // ── Change password ──────────────────────────────────────────
 
-test('logged-in nav shows Change PW button', async ({ page }) => {
+test('logged-in nav shows Account button', async ({ page }) => {
   await registerUser(page, 'changepw');
-  await expect(page.locator('.nav-auth button', { hasText: 'Change PW' })).toBeVisible();
+  await expect(page.locator('.nav-auth button', { hasText: 'Account' })).toBeVisible();
 });
 
-test('logged-out nav does not show Change PW button', async ({ page }) => {
-  await expect(page.locator('.nav-auth button', { hasText: 'Change PW' })).not.toBeVisible();
+test('logged-out nav does not show Account button', async ({ page }) => {
+  await expect(page.locator('.nav-auth button', { hasText: 'Account' })).not.toBeVisible();
 });
 
-test('clicking Change PW shows change password form', async ({ page }) => {
+test('clicking Account shows account settings modal', async ({ page }) => {
   await registerUser(page, 'changepw2');
-  await page.locator('.nav-auth button', { hasText: 'Change PW' }).click();
-  await expect(page.locator('.auth-modal h2')).toHaveText('Change Password');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await expect(page.locator('.auth-modal h2')).toHaveText('Account Settings');
 });
 
 test('change password form has current password field', async ({ page }) => {
   await registerUser(page, 'changepw3');
-  await page.locator('.nav-auth button', { hasText: 'Change PW' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.account-tab', { hasText: 'Password' }).click();
   const inputs = page.locator('.auth-modal input[type="password"]');
   await expect(inputs).toHaveCount(3);
 });
 
 test('change password with wrong current password shows error', async ({ page }) => {
   await registerUser(page, 'changepw4');
-  await page.locator('.nav-auth button', { hasText: 'Change PW' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.account-tab', { hasText: 'Password' }).click();
   await page.locator('.auth-modal input[type="password"]').nth(0).fill('wrongpassword');
   await page.locator('.auth-modal input[type="password"]').nth(1).fill('newpassword123');
   await page.locator('.auth-modal input[type="password"]').nth(2).fill('newpassword123');
@@ -112,7 +114,8 @@ test('change password with wrong current password shows error', async ({ page })
 
 test('change password with mismatched new passwords shows error', async ({ page }) => {
   await registerUser(page, 'changepw5');
-  await page.locator('.nav-auth button', { hasText: 'Change PW' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.account-tab', { hasText: 'Password' }).click();
   await page.locator('.auth-modal input[type="password"]').nth(0).fill('password123');
   await page.locator('.auth-modal input[type="password"]').nth(1).fill('newpassword123');
   await page.locator('.auth-modal input[type="password"]').nth(2).fill('differentpassword');
@@ -122,7 +125,8 @@ test('change password with mismatched new passwords shows error', async ({ page 
 
 test('change password success shows confirmation', async ({ page }) => {
   await registerUser(page, 'changepw6');
-  await page.locator('.nav-auth button', { hasText: 'Change PW' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.account-tab', { hasText: 'Password' }).click();
   await page.locator('.auth-modal input[type="password"]').nth(0).fill('password123');
   await page.locator('.auth-modal input[type="password"]').nth(1).fill('newpassword456');
   await page.locator('.auth-modal input[type="password"]').nth(2).fill('newpassword456');
@@ -132,8 +136,8 @@ test('change password success shows confirmation', async ({ page }) => {
 
 test('change password cancel returns to robots page', async ({ page }) => {
   await registerUser(page, 'changepw7');
-  await page.locator('.nav-auth button', { hasText: 'Change PW' }).click();
-  await page.locator('.auth-switch', { hasText: 'Cancel' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.auth-switch', { hasText: 'Close' }).click();
   await expect(page.locator('.page-title')).toHaveText('My Robots');
 });
 
