@@ -1,24 +1,26 @@
-// Auth helpers — token stored in localStorage
-
 const TOKEN_KEY    = 'robowar_token';
 const USER_KEY     = 'robowar_user';
 const IS_ADMIN_KEY = 'robowar_is_admin';
+const HAS_EMAIL_KEY = 'robowar_has_email';
 
-export function getToken()   { return localStorage.getItem(TOKEN_KEY); }
-export function getUser()    { return localStorage.getItem(USER_KEY); }
-export function isLoggedIn() { return !!getToken(); }
-export function isAdmin()    { return localStorage.getItem(IS_ADMIN_KEY) === '1'; }
+export function getToken()    { return localStorage.getItem(TOKEN_KEY); }
+export function getUser()     { return localStorage.getItem(USER_KEY); }
+export function isLoggedIn()  { return !!getToken(); }
+export function isAdmin()     { return localStorage.getItem(IS_ADMIN_KEY) === '1'; }
+export function hasEmail()    { return localStorage.getItem(HAS_EMAIL_KEY) === '1'; }
 
-export function saveSession(token, username, is_admin = 0) {
+export function saveSession(token, username, is_admin = 0, has_email = false) {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, username);
   localStorage.setItem(IS_ADMIN_KEY, is_admin ? '1' : '0');
+  localStorage.setItem(HAS_EMAIL_KEY, has_email ? '1' : '0');
 }
 
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(IS_ADMIN_KEY);
+  localStorage.removeItem(HAS_EMAIL_KEY);
 }
 
 async function apiFetch(path, options = {}) {
@@ -41,7 +43,7 @@ export async function register(username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
-  saveSession(data.token, data.username, data.is_admin);
+  saveSession(data.token, data.username, data.is_admin, data.has_email);
   return data;
 }
 
@@ -50,8 +52,15 @@ export async function login(username, password) {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
-  saveSession(data.token, data.username, data.is_admin);
+  saveSession(data.token, data.username, data.is_admin, data.has_email);
   return data;
+}
+
+export async function logout() {
+  try {
+    await apiFetch('/api/auth/logout', { method: 'POST' });
+  } catch { /* ignore — clear session regardless */ }
+  clearSession();
 }
 
 export async function changePassword(currentPassword, newPassword) {
@@ -59,6 +68,15 @@ export async function changePassword(currentPassword, newPassword) {
     method: 'POST',
     body: JSON.stringify({ currentPassword, newPassword }),
   });
+}
+
+export async function updateEmail(email) {
+  const data = await apiFetch('/api/auth/update-email', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+  localStorage.setItem(HAS_EMAIL_KEY, email ? '1' : '0');
+  return data;
 }
 
 export async function forgotPassword(email) {

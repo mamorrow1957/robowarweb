@@ -893,3 +893,52 @@ body {
   border-color: #fa0 !important;
   color: #fa0 !important;
 }
+
+/* ── Account modal tabs ──────────────────────────────────────── */
+.account-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 8px;
+}
+.account-tab {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+}
+.account-tab.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.auth-success {
+  color: #4c4;
+  font-size: 0.85em;
+  padding: 4px 0;
+}
+
+/* ── Email nudge ─────────────────────────────────────────────── */
+.email-nudge {
+  background: #2a2000;
+  border: 1px solid #554400;
+  border-radius: 4px;
+  color: #cc9;
+  font-size: 0.85em;
+  margin: 0 0 12px 0;
+  padding: 8px 12px;
+}
+.nudge-link {
+  background: none;
+  border: none;
+  color: #fc6;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}

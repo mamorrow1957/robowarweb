@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { getRobots, deleteRobot, saveRobot, newRobotId } from '../storage.js';
 import { getRobotsFromAPI, saveRobotToAPI, deleteRobotFromAPI } from '../apiStorage.js';
+import { hasEmail } from '../auth.js';
 import { DEFAULT_HARDWARE, ROBOT_COLORS, calcHardwareCost } from '../engine/hardware.js';
 
 function parseRwFile(text) {
@@ -142,6 +143,11 @@ export default function MyRobots({ navigate, loggedIn }) {
       {!loggedIn && (
         <p className="auth-nudge">
           💾 <strong>Log in</strong> to save your robots to the cloud and access them from any device.
+        </p>
+      )}
+      {loggedIn && !hasEmail() && (
+        <p className="email-nudge">
+          ⚠ No recovery email set — <button className="nudge-link" onClick={() => navigate('account')}>add one now</button> so you can reset your password if you forget it.
         </p>
       )}
       <div className="robot-list">
