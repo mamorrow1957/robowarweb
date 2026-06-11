@@ -258,17 +258,20 @@ test('banned user sees ban message on login', async ({ page }) => {
 
 test('account is locked after 5 failed login attempts', async ({ page }) => {
   const { username, password } = await registerUser(page, 'locktest');
-  // Log out
+  // Log out and wait for Log In button to confirm logout completed
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
   // Attempt login with wrong password 5 times via API
   for (let i = 0; i < 5; i++) {
-    await page.evaluate(async ({ username }) => {
-      await fetch('/api/auth/login', {
+    const status = await page.evaluate(async ({ username }) => {
+      const r = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password: 'wrongpassword' }),
       });
+      return r.status;
     }, { username });
+    expect(status).toBeLessThanOrEqual(403); // 401 for wrong pw, 403 when locked
   }
   // Now try the correct password — should be locked
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
@@ -280,7 +283,9 @@ test('account is locked after 5 failed login attempts', async ({ page }) => {
 
 test('unlock endpoint resets lock so user can log in again', async ({ page }) => {
   const { username, password } = await registerUser(page, 'lockunlock');
+  // Log out and wait for Log In button to confirm logout completed
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
   // Trigger lockout via API
   for (let i = 0; i < 5; i++) {
     await page.evaluate(async ({ username }) => {
@@ -291,21 +296,26 @@ test('unlock endpoint resets lock so user can log in again', async ({ page }) =>
       });
     }, { username });
   }
-  // Get admin token (admin first-login flow)
+  // Get admin token (admin first-login flow — CI fresh DB has password_set=0)
   const adminToken = await page.evaluate(async () => {
     const r = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin', password: '' }),
     });
+    if (!r.ok) throw new Error(`Admin login failed: ${r.status}`);
     const data = await r.json();
+    if (!data.token) throw new Error('No token in admin login response');
     return data.token;
   });
-  // Fetch user list to find id
+  // Fetch user list to find user id
   const userId = await page.evaluate(async ({ token, username }) => {
     const r = await fetch('/api/admin/users', { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) throw new Error(`Admin users fetch failed: ${r.status}`);
     const users = await r.json();
-    return users.find(u => u.username === username)?.id;
+    const user = users.find(u => u.username === username);
+    if (!user) throw new Error(`User ${username} not found in admin list`);
+    return user.id;
   }, { token: adminToken, username });
   // Verify locked
   const lockedStatus = await page.evaluate(async ({ token, id }) => {
@@ -315,12 +325,14 @@ test('unlock endpoint resets lock so user can log in again', async ({ page }) =>
   }, { token: adminToken, id: userId });
   expect(lockedStatus).toBe(1);
   // Unlock via admin API
-  await page.evaluate(async ({ token, id }) => {
-    await fetch(`/api/admin/users/${id}/unlock`, {
+  const unlockStatus = await page.evaluate(async ({ token, id }) => {
+    const r = await fetch(`/api/admin/users/${id}/unlock`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
+    return r.status;
   }, { token: adminToken, id: userId });
+  expect(unlockStatus).toBe(200);
   // User can now log in
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
