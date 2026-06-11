@@ -282,7 +282,7 @@ test('account is locked after 5 failed login attempts', async ({ page }) => {
 });
 
 test('unlock endpoint resets lock so user can log in again', async ({ page }) => {
-  const { username, password } = await registerUser(page, 'lockunlock');
+  const { username, password } = await registerUser(page, 'unlock');
   // Log out and wait for Log In button to confirm logout completed
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
   await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
