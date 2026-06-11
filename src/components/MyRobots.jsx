@@ -58,7 +58,7 @@ export default function MyRobots({ navigate, loggedIn }) {
         setRobots(getRobots());
       }
     } else {
-      setRobots(getRobots());
+      setRobots([]);
     }
   }
 
