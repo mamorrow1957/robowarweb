@@ -166,8 +166,15 @@ test('change password success shows confirmation', async ({ page }) => {
 
 // ── Email nudge ──────────────────────────────────────────────
 
+async function simulateNoEmail(page) {
+  await page.evaluate(() => localStorage.setItem('robowar_has_email', '0'));
+  await page.reload();
+  await page.locator('.nav-user').waitFor();
+}
+
 test('email nudge is visible when logged in with no email', async ({ page }) => {
   await registerUser(page, 'nudge1');
+  await simulateNoEmail(page);
   await expect(page.locator('.email-nudge')).toBeVisible();
 });
 
@@ -177,6 +184,7 @@ test('email nudge is not visible when logged out', async ({ page }) => {
 
 test('email nudge disappears after setting email', async ({ page }) => {
   await registerUser(page, 'nudge2');
+  await simulateNoEmail(page);
   await expect(page.locator('.email-nudge')).toBeVisible();
   await page.locator('.nav-auth button', { hasText: 'Account' }).click();
   await page.locator('.auth-modal input[type="email"]').fill(`nudge2_${Date.now()}@example.com`);
@@ -187,6 +195,7 @@ test('email nudge disappears after setting email', async ({ page }) => {
 
 test('email nudge links to Account modal', async ({ page }) => {
   await registerUser(page, 'nudge3');
+  await simulateNoEmail(page);
   await page.locator('.nudge-link').click();
   await expect(page.locator('.auth-modal h2')).toHaveText('Account Settings');
 });
