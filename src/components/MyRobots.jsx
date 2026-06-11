@@ -148,6 +148,7 @@ export default function MyRobots({ navigate, loggedIn }) {
           <input
             ref={importRef}
             type="file"
+            accept=".rw"
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
