@@ -13,7 +13,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
-const SITE_URL   = process.env.SITE_URL || 'http://localhost:5173';
+const SITE_URL      = process.env.SITE_URL || 'http://localhost:5173';
+const ADMIN_EMAIL   = process.env.ADMIN_EMAIL;
+const MAX_LOGIN_ATTEMPTS = 5;
 const ALLOWED_ORIGINS = [
   'https://robowar.morroweb.com',
   'http://localhost:5173',
@@ -68,6 +70,8 @@ if (!cols.includes('password_set'))       db.exec("ALTER TABLE users ADD COLUMN 
 if (!cols.includes('email'))              db.exec("ALTER TABLE users ADD COLUMN email TEXT");
 if (!cols.includes('reset_token'))        db.exec("ALTER TABLE users ADD COLUMN reset_token TEXT");
 if (!cols.includes('reset_token_expiry')) db.exec("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT");
+if (!cols.includes('login_attempts'))     db.exec("ALTER TABLE users ADD COLUMN login_attempts INTEGER DEFAULT 0");
+if (!cols.includes('is_locked'))          db.exec("ALTER TABLE users ADD COLUMN is_locked INTEGER DEFAULT 0");
 
 // Unique index on email (only non-null values)
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`);
@@ -94,13 +98,16 @@ app.use(cors({
 
 app.use(express.json());
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts, please try again later.' },
-});
+const IS_TEST = process.env.JWT_SECRET === 'ci-test-secret';
+const authLimiter = IS_TEST
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 20,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: 'Too many attempts, please try again later.' },
+    });
 
 // Valid username: 2–32 chars, letters/digits/underscore/hyphen only
 const USERNAME_RE = /^[a-zA-Z0-9_-]{2,32}$/;
@@ -183,19 +190,71 @@ app.post('/api/auth/register', authLimiter, (req, res) => {
 });
 
 // ── Login ─────────────────────────────────────────────────────
-app.post('/api/auth/login', authLimiter, (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { username, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user) return res.status(401).json({ error: 'Invalid username or password' });
   if (user.is_banned) return res.status(403).json({ error: 'Your account has been banned.' });
 
+  // Admin accounts are never locked out (would create an unrecoverable situation)
+  if (!user.is_admin) {
+    if (user.is_locked) return res.status(403).json({ error: 'Account locked due to too many failed login attempts. Please contact an administrator.' });
+  }
+
+  // Admin first-login (no password set yet) — skip attempt tracking
   if (user.is_admin && !user.password_set) {
     return res.json(userResponse(user, issueToken(user)));
   }
 
   if (!bcrypt.compareSync(password, user.password_hash)) {
+    const attempts = (user.login_attempts || 0) + 1;
+    db.prepare('UPDATE users SET login_attempts = ? WHERE id = ?').run(attempts, user.id);
+
+    if (user.is_admin) {
+      // Admin is never locked, but after threshold send a reset-link alert and reset counter
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        db.prepare('UPDATE users SET login_attempts = 0 WHERE id = ?').run(user.id);
+        const adminEmail = ADMIN_EMAIL || user.email;
+        if (adminEmail && !IS_TEST) {
+          const token = crypto.randomBytes(32).toString('hex');
+          const expiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+          db.prepare('UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?')
+            .run(token, expiry, user.id);
+          const resetUrl = `${SITE_URL}/#reset=${token}`;
+          mailer.sendMail({
+            from: `"RoboWar" <${process.env.SMTP_USER}>`,
+            to: adminEmail,
+            subject: 'RoboWar — Suspicious Admin Login Activity',
+            html: `<p>There have been ${attempts} consecutive failed login attempts on the <strong>admin</strong> account.</p>
+                   <p>The account has <strong>not</strong> been locked, but if you've forgotten your password you can reset it:</p>
+                   <p><a href="${resetUrl}">${resetUrl}</a></p>
+                   <p>This link expires in 1 hour. If you did not attempt to log in, someone may be trying to access your account.</p>`,
+          }).catch(err => console.error('Admin alert email error:', err));
+        }
+      }
+    } else {
+      // Lock non-admin accounts after threshold
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        db.prepare('UPDATE users SET is_locked = 1 WHERE id = ?').run(user.id);
+        const adminEmail = ADMIN_EMAIL || db.prepare("SELECT email FROM users WHERE is_admin = 1 LIMIT 1").get()?.email;
+        if (adminEmail && !IS_TEST) {
+          mailer.sendMail({
+            from: `"RoboWar" <${process.env.SMTP_USER}>`,
+            to: adminEmail,
+            subject: 'RoboWar — Account Locked',
+            html: `<p>The account <strong>${user.username}</strong> has been locked after ${attempts} failed login attempts.</p>
+                   <p>Log in to the admin panel to unlock it: <a href="${SITE_URL}">${SITE_URL}</a></p>`,
+          }).catch(err => console.error('Admin notify email error:', err));
+        }
+        return res.status(403).json({ error: 'Account locked due to too many failed login attempts. Please contact an administrator.' });
+      }
+    }
+
     return res.status(401).json({ error: 'Invalid username or password' });
   }
+
+  // Successful login — reset attempt counter
+  db.prepare('UPDATE users SET login_attempts = 0 WHERE id = ?').run(user.id);
   res.json(userResponse(user, issueToken(user)));
 });
 
@@ -315,7 +374,7 @@ app.delete('/api/robots/:id', auth, (req, res) => {
 // ── Admin: list users ─────────────────────────────────────────
 app.get('/api/admin/users', auth, adminOnly, (req, res) => {
   const users = db.prepare(
-    'SELECT id, username, email, is_admin, is_banned, password_set, created_at FROM users ORDER BY created_at DESC'
+    'SELECT id, username, email, is_admin, is_banned, is_locked, login_attempts, password_set, created_at FROM users ORDER BY created_at DESC'
   ).all();
   res.json(users);
 });
@@ -330,6 +389,11 @@ app.post('/api/admin/users/:id/ban', auth, adminOnly, (req, res) => {
 
 app.post('/api/admin/users/:id/unban', auth, adminOnly, (req, res) => {
   db.prepare('UPDATE users SET is_banned = 0 WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/users/:id/unlock', auth, adminOnly, (req, res) => {
+  db.prepare('UPDATE users SET is_locked = 0, login_attempts = 0 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
@@ -360,6 +424,15 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
+
+// ── Test-only cleanup (disabled in production) ────────────────
+if (IS_TEST) {
+  app.delete('/api/test/cleanup', (req, res) => {
+    db.prepare('DELETE FROM robots WHERE user_id IN (SELECT id FROM users WHERE is_admin = 0)').run();
+    db.prepare('DELETE FROM users WHERE is_admin = 0').run();
+    res.json({ ok: true });
+  });
+}
 
 // ── Error handler ─────────────────────────────────────────────
 // eslint-disable-next-line no-unused-vars
