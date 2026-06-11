@@ -12,6 +12,7 @@ import AdminPanel from './components/AdminPanel.jsx';
 import AccountModal from './components/AccountModal.jsx';
 import ForgotPasswordModal from './components/ForgotPasswordModal.jsx';
 import SharedRobotView from './components/SharedRobotView.jsx';
+import VerifyEmailModal from './components/VerifyEmailModal.jsx';
 import { isLoggedIn, isAdmin, saveSession } from './auth.js';
 
 export default function App() {
@@ -20,13 +21,19 @@ export default function App() {
   const [params, setParams]         = useState({});
   const [loggedIn, setLoggedIn]     = useState(isLoggedIn());
   const [resetToken, setResetToken] = useState(null);
+  const [verifyToken, setVerifyToken] = useState(null);
 
   useEffect(() => {
     const hash = window.location.hash;
-    const resetMatch = hash.match(/[#&]reset=([^&]+)/);
-    const robotMatch = hash.match(/[#&]robot=([^&]+)/);
+    const resetMatch  = hash.match(/[#&]reset=([^&]+)/);
+    const verifyMatch = hash.match(/[#&]verify=([^&]+)/);
+    const robotMatch  = hash.match(/[#&]robot=([^&]+)/);
     if (resetMatch) {
       setResetToken(resetMatch[1]);
+      setShowSplash(false);
+      window.history.replaceState({}, '', '/');
+    } else if (verifyMatch) {
+      setVerifyToken(verifyMatch[1]);
       setShowSplash(false);
       window.history.replaceState({}, '', '/');
     } else if (robotMatch) {
@@ -52,6 +59,15 @@ export default function App() {
         <ForgotPasswordModal
           resetToken={resetToken}
           onClose={() => { setResetToken(null); navigate('login'); }}
+        />
+      );
+    }
+    if (verifyToken) {
+      return (
+        <VerifyEmailModal
+          token={verifyToken}
+          onSuccess={() => { setVerifyToken(null); setLoggedIn(isLoggedIn()); navigate('robots'); }}
+          onClose={() => { setVerifyToken(null); navigate('login'); }}
         />
       );
     }
