@@ -990,7 +990,7 @@ tests/
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (~320 total)
+### 9.3 Test Counts (~340 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
