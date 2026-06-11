@@ -73,6 +73,9 @@ if (!cols.includes('reset_token_expiry')) db.exec("ALTER TABLE users ADD COLUMN 
 if (!cols.includes('login_attempts'))     db.exec("ALTER TABLE users ADD COLUMN login_attempts INTEGER DEFAULT 0");
 if (!cols.includes('is_locked'))          db.exec("ALTER TABLE users ADD COLUMN is_locked INTEGER DEFAULT 0");
 
+const robotCols = db.prepare("PRAGMA table_info(robots)").all().map(c => c.name);
+if (!robotCols.includes('is_public'))     db.exec("ALTER TABLE robots ADD COLUMN is_public INTEGER DEFAULT 0");
+
 // Unique index on email (only non-null values)
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`);
 
@@ -352,6 +355,25 @@ app.post('/api/auth/update-email', auth, (req, res) => {
 app.get('/api/robots', auth, (req, res) => {
   const robots = db.prepare('SELECT * FROM robots WHERE user_id = ?').all(req.user.id);
   res.json(robots.map(r => ({ ...r, hardware: JSON.parse(r.hardware) })));
+});
+
+app.get('/api/robots/shared/:id', auth, (req, res) => {
+  const robot = db.prepare(
+    'SELECT r.*, u.username AS owner FROM robots r JOIN users u ON r.user_id = u.id WHERE r.id = ? AND r.is_public = 1 LIMIT 1'
+  ).get(req.params.id);
+  if (!robot) return res.status(404).json({ error: 'Robot not found or not shared' });
+  res.json({ ...robot, hardware: JSON.parse(robot.hardware) });
+});
+
+app.post('/api/robots/:id/share', auth, (req, res) => {
+  const result = db.prepare('UPDATE robots SET is_public = 1 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Robot not found' });
+  res.json({ ok: true });
+});
+
+app.delete('/api/robots/:id/share', auth, (req, res) => {
+  db.prepare('UPDATE robots SET is_public = 0 WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+  res.json({ ok: true });
 });
 
 app.put('/api/robots/:id', auth, (req, res) => {
