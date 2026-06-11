@@ -541,7 +541,11 @@ app.delete('/api/auth/account', auth, async (req, res) => {
 // ── Admin: robot management ───────────────────────────────────
 app.get('/api/admin/users/:id/robots', auth, adminOnly, (req, res) => {
   const robots = db.prepare('SELECT * FROM robots WHERE user_id = ?').all(req.params.id);
-  res.json(robots.map(r => ({ ...r, hardware: JSON.parse(r.hardware) })));
+  res.json(robots.map(r => {
+    let hardware = r.hardware;
+    try { hardware = JSON.parse(r.hardware); } catch { /* leave as raw string */ }
+    return { ...r, hardware };
+  }));
 });
 
 app.delete('/api/admin/robots/:robotId/user/:userId', auth, adminOnly, (req, res) => {
