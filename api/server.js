@@ -467,7 +467,7 @@ app.delete('/api/robots/:id', auth, (req, res) => {
 // ── Admin: list users ─────────────────────────────────────────
 app.get('/api/admin/users', auth, adminOnly, (req, res) => {
   const users = db.prepare(
-    'SELECT id, username, email, is_admin, is_banned, is_locked, login_attempts, password_set, created_at FROM users ORDER BY created_at DESC'
+    'SELECT id, username, email, email_verified, is_admin, is_banned, is_locked, login_attempts, password_set, created_at FROM users ORDER BY created_at DESC'
   ).all();
   res.json(users);
 });
@@ -515,6 +515,25 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
   if (target.is_admin) return res.status(400).json({ error: 'Cannot delete admin' });
   db.prepare('DELETE FROM robots WHERE user_id = ?').run(req.params.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Admin: verify email ───────────────────────────────────────
+app.post('/api/admin/users/:id/verify-email', auth, adminOnly, (req, res) => {
+  db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Self-serve account deletion ───────────────────────────────
+app.delete('/api/auth/account', auth, async (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.is_admin) return res.status(400).json({ error: 'Admin account cannot be self-deleted' });
+  const { password } = req.body;
+  if (!password || !bcrypt.compareSync(password, user.password_hash))
+    return res.status(401).json({ error: 'Incorrect password' });
+  db.prepare('DELETE FROM robots WHERE user_id = ?').run(user.id);
+  db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
   res.json({ ok: true });
 });
 
