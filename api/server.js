@@ -518,6 +518,17 @@ app.delete('/api/admin/users/:id', auth, adminOnly, (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Admin: robot management ───────────────────────────────────
+app.get('/api/admin/users/:id/robots', auth, adminOnly, (req, res) => {
+  const robots = db.prepare('SELECT * FROM robots WHERE user_id = ?').all(req.params.id);
+  res.json(robots.map(r => ({ ...r, hardware: JSON.parse(r.hardware) })));
+});
+
+app.delete('/api/admin/robots/:robotId/user/:userId', auth, adminOnly, (req, res) => {
+  db.prepare('DELETE FROM robots WHERE id = ? AND user_id = ?').run(req.params.robotId, req.params.userId);
+  res.json({ ok: true });
+});
+
 // ── Test-only cleanup (disabled in production) ────────────────
 if (IS_TEST) {
   app.delete('/api/test/cleanup', (req, res) => {
@@ -536,3 +547,4 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => console.log(`RoboWar API running on port ${PORT}`));
+
