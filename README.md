@@ -93,13 +93,15 @@ Server (Ubuntu / Nginx / Cloudflare)
 | Build tool | Vite |
 | Reverse proxy | Nginx + Cloudflare |
 | CI/CD | GitHub Actions + self-hosted runner |
-| Tests | Playwright (~330 tests, all passing) |
+| Tests | Playwright (~340 tests, all passing) |
 
 ## Security
 
 - Passwords hashed with bcrypt (10 rounds)
 - JWT authentication with server-side revocation on logout
 - Rate limiting on all auth endpoints (20 req / 15 min per IP)
+- Account lockout after 5 consecutive failed login attempts; admin notified by email and can unlock via the admin panel
+- Admin account is never locked — 5 failed admin attempts trigger a password-reset email alert instead
 - CORS restricted to `robowar.morroweb.com`
 - Password reset tokens delivered via hash fragment (`/#reset=TOKEN`) — never logged by the server
 - Email addresses unique across accounts
