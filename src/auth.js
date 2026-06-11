@@ -21,6 +21,7 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(IS_ADMIN_KEY);
   localStorage.removeItem(HAS_EMAIL_KEY);
+  localStorage.removeItem('robowar_robots');
 }
 
 async function apiFetch(path, options = {}) {
