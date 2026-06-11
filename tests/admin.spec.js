@@ -469,3 +469,50 @@ test('failed admin login attempts reset counter and admin can still log in', asy
   }, { pwd: ADMIN_TEST_PASSWORD });
   expect(token).toBeTruthy();
 });
+
+// ── Account deletion ─────────────────────────────────────────
+
+test('Delete Account tab is visible in Account Settings for regular users', async ({ page }) => {
+  await registerUser(page, 'del1');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await expect(page.locator('.account-tab', { hasText: 'Delete Account' })).toBeVisible();
+});
+
+test('Delete Account with wrong password shows error', async ({ page }) => {
+  await registerUser(page, 'del2');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.account-tab', { hasText: 'Delete Account' }).click();
+  await page.locator('.auth-modal input[type="password"]').fill('wrongpassword');
+  page.on('dialog', d => d.accept());
+  await page.locator('.auth-submit').click();
+  await expect(page.locator('.auth-error')).toBeVisible();
+});
+
+test('Delete Account with correct password logs user out', async ({ page }) => {
+  await registerUser(page, 'del3');
+  await page.locator('.nav-auth button', { hasText: 'Account' }).click();
+  await page.locator('.account-tab', { hasText: 'Delete Account' }).click();
+  await page.locator('.auth-modal input[type="password"]').fill('password123');
+  page.on('dialog', d => d.accept());
+  await page.locator('.auth-submit').click();
+  // After deletion session is cleared — Log In button should reappear
+  await expect(page.locator('.nav-auth button', { hasText: 'Log In' })).toBeVisible({ timeout: 8000 });
+});
+
+// ── Admin email verification column ─────────────────────────
+
+test('admin panel shows Verified column header', async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.locator('.nav-admin').click();
+  await expect(page.locator('.admin-table th', { hasText: 'Verified' })).toBeVisible();
+});
+
+test('admin panel shows verified checkmark for verified user', async ({ page }) => {
+  await registerUser(page, 'ver1');
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
+  await loginAsAdmin(page);
+  await page.locator('.nav-admin').click();
+  const row = page.locator('tr', { hasText: `testuser_ver1` });
+  await expect(row.locator('td').nth(2)).toContainText('✓');
+});
