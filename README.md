@@ -26,10 +26,13 @@ POOL
 
 ## Features
 
-- **User accounts** — register, log in, and save robots to the server; guest mode fully supported with localStorage fallback
-- **Admin panel** — ban/unban users, reset passwords, manage emails, delete accounts
+- **User accounts** — register with email verification, log in, and save robots to the server; guest mode fully supported with localStorage fallback
+- **Robot sharing** — share any robot via a unique link (`/#robot=ID`); requires login to view; share/unshare from My Robots or the editor
+- **Admin panel** — ban/unban users, reset passwords, manage emails, manually verify email, view/delete user robots, delete accounts
 - **Password recovery** — email-based reset link flow via Nodemailer
-- **Account settings** — change password or update recovery email at any time
+- **Email verification** — new accounts require email verification before login; existing users are grandfathered
+- **Account settings** — change password, update recovery email, or permanently delete your account
+- **Privacy policy** — at `/privacy-policy.html`; commits to never selling data, no marketing emails, no AI training use
 - **Splash page** — intro screen with links to enter the game or open the Programmer's Guide
 - **Robot editor** — CodeMirror-based editor with syntax highlighting, opcode autocomplete (Ctrl+Space), inline compiler errors, and a live hardware-point budget counter
 - **Robot import/export** — save and load robots as `.rw` plain-text files from the editor or My Robots list
@@ -74,12 +77,15 @@ Browser (React + Vite)
           ▼
 Server (Ubuntu / Nginx / Cloudflare)
   ├── Express API (port 3001)
-  │     /api/auth/* — register, login, logout, change password, forgot/reset password
-  │     /api/robots — CRUD (per-user, JWT-scoped)
-  │     /api/admin/* — user management (admin only)
+  │     /api/auth/*    — register, login, logout, change password,
+  │                       forgot/reset password, verify email,
+  │                       resend verification, delete account
+  │     /api/robots    — CRUD + share/unshare (per-user, JWT-scoped)
+  │     /api/robots/shared/:id — public robot view (auth required)
+  │     /api/admin/*   — user management, robot management (admin only)
   └── SQLite (robowar.db)
-        users — accounts, email, password hash, admin/ban flags
-        robots — per-user robot definitions
+        users   — accounts, email, email_verified, password hash, admin/ban flags
+        robots  — per-user robot definitions, is_public flag
         revoked_tokens — server-side logout blacklist
 ```
 
@@ -93,7 +99,7 @@ Server (Ubuntu / Nginx / Cloudflare)
 | Build tool | Vite |
 | Reverse proxy | Nginx + Cloudflare |
 | CI/CD | GitHub Actions + self-hosted runner |
-| Tests | Playwright (~340 tests, all passing) |
+| Tests | Playwright (~350 tests, all passing) |
 
 ## Security
 
@@ -103,9 +109,11 @@ Server (Ubuntu / Nginx / Cloudflare)
 - Account lockout after 5 consecutive failed login attempts; admin notified by email and can unlock via the admin panel
 - Admin account is never locked — 5 failed admin attempts trigger a password-reset email alert instead
 - CORS restricted to `robowar.morroweb.com`
-- Password reset tokens delivered via hash fragment (`/#reset=TOKEN`) — never logged by the server
-- Email addresses unique across accounts
+- Password reset and email verification tokens delivered via hash fragment (`/#reset=TOKEN`, `/#verify=TOKEN`) — never logged by the server
+- Email addresses unique across accounts; required and verified for all new accounts
 - Username validation: 2–32 chars, alphanumeric/underscore/hyphen only
+- Shared robots require authentication to view (no anonymous access)
+- Privacy policy commits to no data sales, no marketing emails, no AI training use; full text at `/privacy-policy.html`
 - Daily SQLite backups with 30-day retention
 
 ## Running Locally
@@ -134,3 +142,4 @@ Slack notifications sent to `#deployments` on pass/fail/deploy.
 
 - [robowar-spec.md](robowar-spec.md) — full specification: language reference, hardware system, combat engine, API endpoints, test structure
 - [Programmer's Guide](https://robowar.morroweb.com/programmer-guide.html) — in-game reference for robot programmers
+- [Privacy Policy](https://robowar.morroweb.com/privacy-policy.html) — data handling commitments
