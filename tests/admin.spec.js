@@ -425,3 +425,30 @@ test('clicking Unlock in admin panel restores Active status', async ({ page }) =
   await expect(row).toContainText('Active');
   await expect(row.locator('button', { hasText: 'Unlock' })).not.toBeVisible();
 });
+
+test('failed admin login attempts reset counter and admin can still log in', async ({ page }) => {
+  // Make 5 failed attempts against admin account via API
+  for (let i = 0; i < 5; i++) {
+    const status = await page.evaluate(async () => {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: 'wrongpassword' }),
+      });
+      return r.status;
+    });
+    expect(status).toBe(401); // Never 403 — admin is never locked
+  }
+  // Admin can still log in (counter was reset after 5 failures)
+  const token = await page.evaluate(async () => {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: '' }),
+    });
+    if (!r.ok) throw new Error(`Admin login returned ${r.status}`);
+    const data = await r.json();
+    return data.token;
+  });
+  expect(token).toBeTruthy();
+});

@@ -809,7 +809,9 @@ Guest mode is fully supported — users who have not logged in continue to use `
 
 **Banned users** receive a `403` response with the message "Your account has been banned." on login and cannot access the app.
 
-**Account lockout** — After **5 consecutive failed login attempts** (wrong password), the account is locked. Subsequent login attempts return `403` with "Account locked due to too many failed login attempts. Please contact an administrator." even if the correct password is supplied. On lockout, an email notification is sent to the admin address (`ADMIN_EMAIL` env var, or the admin account's email). Admin accounts are **never locked** (locking admin would create an unrecoverable situation). A successful login resets the attempt counter. Only an admin can unlock a locked account via the admin panel.
+**Account lockout** — After **5 consecutive failed login attempts** (wrong password), the account is locked. Subsequent login attempts return `403` with "Account locked due to too many failed login attempts. Please contact an administrator." even if the correct password is supplied. On lockout, an email notification is sent to the admin address (`ADMIN_EMAIL` env var, or the admin account's email). A successful login resets the attempt counter. Only an admin can unlock a locked account via the admin panel.
+
+**Admin brute-force alerting** — The admin account is **never locked** (locking admin would create an unrecoverable situation). Instead, after 5 consecutive failed attempts on the admin login, a password-reset link is emailed to the admin (`ADMIN_EMAIL` env var, or the admin account's own email) and the counter resets. This repeats every 5 failures, alerting the admin without denying access.
 
 **Rate limiting** — Auth endpoints (`/register`, `/login`, `/forgot-password`) are limited to **20 requests per 15 minutes per IP** in production. Rate limiting is disabled in the CI test environment (`JWT_SECRET === 'ci-test-secret'`).
 
@@ -992,7 +994,7 @@ tests/
 
 | File | Tests | Coverage area |
 |---|---|---|
-| `admin.spec.js` | 35 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API |
+| `admin.spec.js` | 36 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API, admin brute-force alerting |
 | `auth.spec.js` | 23 | Login/register modal, nav auth state, nudge banner, error cases |
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
