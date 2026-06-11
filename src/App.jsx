@@ -91,7 +91,7 @@ export default function App() {
           />
         );
       case 'account':
-        return <AccountModal onClose={() => navigate('robots')} />;
+        return <AccountModal onClose={() => { setLoggedIn(isLoggedIn()); navigate('robots'); }} />;
       case 'admin':
         return isAdmin()
           ? <AdminPanel navigate={navigate} />

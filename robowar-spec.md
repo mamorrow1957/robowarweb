@@ -1,6 +1,6 @@
 # RoboWar Web — Game Specification
 
-**Version:** 0.7 (admin account, password change, email password recovery — fully implemented)
+**Version:** 0.8 (robot sharing, email verification, account deletion, privacy policy — fully implemented)
 **Platform:** Web (JavaScript / HTML5 Canvas)
 **Based on:** RoboWar 4.1.7 (Rod McFarland, 1989–1994)
 
@@ -799,11 +799,13 @@ The viewer's standard controls (pause, step, speed, mute) remain fully functiona
 
 ## 7. Networking & Backend
 
-### 7.1 Authentication (implemented — v0.7)
+### 7.1 Authentication (implemented — v0.8)
 
-Users register with a **username and password** (minimum 6 characters). Passwords are hashed with **bcrypt** (salt rounds: 10). On successful login or registration the server issues a **JWT** (signed with `HS256`, 30-day expiry). The token is stored in `localStorage` under key `robowar_token`; the username under `robowar_user`; the admin flag under `robowar_is_admin`.
+Users register with a **username, email address, and password** (minimum 6 characters) and must agree to the Privacy Policy. Passwords are hashed with **bcrypt** (salt rounds: 10). After registration the server sends a verification email; the account cannot log in until the email is verified via the link. Users who registered before email verification was introduced are grandfathered (marked verified automatically). In the CI test environment (`JWT_SECRET === 'ci-test-secret'`) registration auto-verifies and returns a JWT immediately.
 
-An **admin account** (username `admin`) is seeded automatically on first server start with no password set (`password_set = 0`). When the admin logs in for the first time, the server returns `password_set: 0` in the login response and the frontend immediately redirects to a forced password-set screen before allowing any other navigation.
+On successful login the server issues a **JWT** (signed with `HS256`, 30-day expiry). The token is stored in `localStorage` under key `robowar_token`; the username under `robowar_user`; the admin flag under `robowar_is_admin`; email presence under `robowar_has_email`.
+
+An **admin account** (username `admin`) is seeded automatically on first server start with no password set (`password_set = 0`). When the admin logs in for the first time, the server returns `password_set: 0` in the login response and the frontend immediately redirects to a forced password-set screen before allowing any other navigation. The admin account is never subject to email verification.
 
 Guest mode is fully supported — users who have not logged in continue to use `localStorage` for robot storage and can use all battle/tournament features. A nudge banner on the My Robots page encourages guests to create an account.
 
@@ -813,7 +815,7 @@ Guest mode is fully supported — users who have not logged in continue to use `
 
 **Admin brute-force alerting** — The admin account is **never locked** (locking admin would create an unrecoverable situation). Instead, after 5 consecutive failed attempts on the admin login, a password-reset link is emailed to the admin (`ADMIN_EMAIL` env var, or the admin account's own email) and the counter resets. This repeats every 5 failures, alerting the admin without denying access.
 
-**Rate limiting** — Auth endpoints (`/register`, `/login`, `/forgot-password`) are limited to **20 requests per 15 minutes per IP** in production. Rate limiting is disabled in the CI test environment (`JWT_SECRET === 'ci-test-secret'`).
+**Rate limiting** — Auth endpoints (`/register`, `/login`, `/forgot-password`, `/resend-verification`) are limited to **20 requests per 15 minutes per IP** in production. Rate limiting is disabled in the CI test environment.
 
 **Username rules** — 2–32 characters; letters, digits, `_`, and `-` only.
 
@@ -821,9 +823,15 @@ Guest mode is fully supported — users who have not logged in continue to use `
 
 **Password reset** — Reset tokens are delivered via URL hash fragment (`/#reset=TOKEN`) so the token is never sent to the server in the request log. Tokens expire after 1 hour.
 
+**Email verification** — Verification tokens are delivered via URL hash fragment (`/#verify=TOKEN`). Tokens expire after 24 hours. Users can request a resend from the "Check your email" screen.
+
 **JWT revocation** — Tokens include a `jti` (JWT ID) claim. On logout the `jti` is stored in a `revoked_tokens` table and the server rejects any request using that token, even before the 30-day expiry.
 
 **Email uniqueness** — The `email` column has a partial unique index: `WHERE email IS NOT NULL`. A user can clear their email (set to `null`) and another user may then claim that address.
+
+**Self-serve account deletion** — Authenticated non-admin users can permanently delete their account and all associated robots from the Account Settings modal (Delete Account tab). The request requires the user's current password as confirmation. Admin accounts cannot be self-deleted.
+
+**Privacy policy** — Served at `/privacy-policy.html`. Commits to: no data sales, no marketing emails, no AI training use, immediate account deletion on request. Contact: help@morrowlabsmail.com.
 
 ### 7.2 API Endpoints (implemented)
 
@@ -831,24 +839,32 @@ All endpoints are served at `/api/*` by the Express process; Nginx proxies them 
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | None | Create account; returns `{ token, username, is_admin, password_set }` |
-| `POST` | `/api/auth/login` | None | Authenticate; returns `{ token, username, is_admin, password_set }` |
+| `POST` | `/api/auth/register` | None | Create account with email; sends verification email; in CI returns JWT immediately |
+| `POST` | `/api/auth/login` | None | Authenticate; returns `{ token, username, is_admin, password_set, has_email }` |
+| `POST` | `/api/auth/logout` | Bearer JWT | Revoke current token (server-side logout) |
 | `POST` | `/api/auth/change-password` | Bearer JWT | Change own password (current + new); first-admin skips current check |
 | `POST` | `/api/auth/forgot-password` | None | Send password-reset email (always returns 200 to prevent enumeration) |
 | `POST` | `/api/auth/reset-password` | None | Consume reset token, set new password |
 | `POST` | `/api/auth/update-email` | Bearer JWT | Update own email address |
-| `GET` | `/api/robots` | Bearer JWT | List all robots for authenticated user |
+| `GET` | `/api/auth/verify-email?token=` | None | Consume email verification token; returns JWT on success |
+| `POST` | `/api/auth/resend-verification` | None | Resend verification email for a given email address |
+| `DELETE` | `/api/auth/account` | Bearer JWT | Delete own account and all robots (requires password confirmation; admin cannot self-delete) |
+| `GET` | `/api/robots` | Bearer JWT | List all robots for authenticated user (includes `is_public` flag) |
 | `PUT` | `/api/robots/:id` | Bearer JWT | Upsert (create or update) a robot |
 | `DELETE` | `/api/robots/:id` | Bearer JWT | Delete a robot |
-| `GET` | `/api/admin/users` | Bearer JWT + admin | List all user accounts |
-| `POST` | `/api/auth/logout` | Bearer JWT | Revoke current token (server-side logout) |
-| `GET` | `/api/admin/users` | Bearer JWT + admin | List all user accounts |
+| `POST` | `/api/robots/:id/share` | Bearer JWT | Mark robot as publicly shared (`is_public = 1`) |
+| `DELETE` | `/api/robots/:id/share` | Bearer JWT | Unshare a robot (`is_public = 0`) |
+| `GET` | `/api/robots/shared/:id` | Bearer JWT | Fetch a shared robot by ID (auth required; 404 if not shared) |
+| `GET` | `/api/admin/users` | Bearer JWT + admin | List all user accounts (includes `email_verified` flag) |
 | `POST` | `/api/admin/users/:id/ban` | Bearer JWT + admin | Ban a user (cannot ban admin) |
 | `POST` | `/api/admin/users/:id/unban` | Bearer JWT + admin | Unban a user |
 | `POST` | `/api/admin/users/:id/unlock` | Bearer JWT + admin | Unlock a locked account and reset attempt counter |
 | `POST` | `/api/admin/users/:id/reset-password` | Bearer JWT + admin | Force-set a user's password |
 | `POST` | `/api/admin/users/:id/update-email` | Bearer JWT + admin | Set or clear a user's email address |
+| `POST` | `/api/admin/users/:id/verify-email` | Bearer JWT + admin | Manually mark a user's email as verified |
 | `DELETE` | `/api/admin/users/:id` | Bearer JWT + admin | Delete user and all their robots |
+| `GET` | `/api/admin/users/:id/robots` | Bearer JWT + admin | List all robots belonging to a user |
+| `DELETE` | `/api/admin/robots/:robotId/user/:userId` | Bearer JWT + admin | Delete a specific robot (admin) |
 | `DELETE` | `/api/test/cleanup` | None (test mode only) | Delete all non-admin users and their robots |
 
 Request bodies and responses use JSON. Auth-required endpoints return `401` if no token is provided or the token is invalid/expired. Admin-only endpoints return `403` for non-admin tokens.
@@ -864,9 +880,11 @@ The editor writes to both `localStorage` and the API when logged in, ensuring of
 
 ### 7.4 Robot Sharing
 
-**v1:** Export and import as `.rw` plain-text files. Both operations are available from the Robot Editor toolbar and from the My Robots list.
+**Link sharing (implemented — v0.8):** Any robot can be shared via a unique URL (`/#robot=ROBOT_ID`). Share/unshare is toggled per robot from the My Robots list or the Robot Editor toolbar. Shared robots require authentication to view — the link prompts login if the visitor is not signed in. The SharedRobotView shows the robot name, owner, hardware summary, read-only program, a Copy Link button, and a Battle This Robot button (which adds the robot to battle setup as an extra opponent).
 
-**v2 (planned):** Share link — `robowar.morroweb.com/robots/:id` — view-only page with read-only editor and battle button.
+The `is_public` flag is stored on the `robots` table. The share URL uses a hash fragment so it is never logged server-side.
+
+**File export/import:** Export and import as `.rw` plain-text files. Both operations are available from the Robot Editor toolbar and from the My Robots list.
 
 ### 7.5 Multiplayer & Spectating (v2 — planned)
 
@@ -880,6 +898,7 @@ Online matchmaking, persistent leaderboards, and real-time battle spectating are
 {
   "id": "rbt_abc123",
   "name": "Trackstar",
+  "is_public": 0,
   "hardware": {
     "armor": 2,
     "shield": 1,
@@ -976,26 +995,27 @@ Run the suite: `npm test` (or `./node_modules/.bin/playwright test`)
 ```
 tests/
 ├── helpers.js              — shared utilities (loadApp, resetApp, seedRobots, …)
-├── admin.spec.js           — forgot password, account modal, change password, email nudge, admin nav, lockout, banned user
-├── auth.spec.js            — login/register modal, nav auth state, error cases
+├── admin.spec.js           — forgot password, account modal, change password, email nudge, admin nav, lockout, banned user, account deletion, email verification
+├── auth.spec.js            — login/register modal (email + privacy checkbox), nav auth state, error cases
 ├── navigation.spec.js      — splash page, credits, nav bar, page routing
 ├── robots.spec.js          — My Robots list (CRUD, display)
 ├── editor.spec.js          — Robot Editor (hardware panel, code editor, save/compile)
 ├── battle.spec.js          — Battle Setup + Battle Viewer (controls, speed buttons, stats)
-├── tournament.spec.js      — Tournament mode (selection, round-robin, standings)
+├── tournament.spec.js      — Tournament mode (selection, round-robin, double elimination, standings)
 ├── leaderboard.spec.js     — Leaderboard (ELO display, rated matches)
+├── sharing.spec.js         — Robot sharing (share/unshare toggle, API auth, hash URL routing)
 └── engine/
     ├── compiler.spec.js    — Compiler unit tests (opcodes, labels, #DEFINE, errors)
     ├── vm.spec.js          — VM unit tests (stack ops, registers, control flow)
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (~340 total)
+### 9.3 Test Counts (~360 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
-| `admin.spec.js` | 36 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API, admin brute-force alerting |
-| `auth.spec.js` | 23 | Login/register modal, nav auth state, nudge banner, error cases |
+| `admin.spec.js` | ~42 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API, admin brute-force alerting, account deletion, admin email verification column |
+| `auth.spec.js` | 23 | Login/register modal (email + privacy fields), nav auth state, nudge banner, error cases |
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
 | `editor.spec.js` | 22 | Hardware panel, code editor, save/compile, error display |
@@ -1005,6 +1025,7 @@ tests/
 | `leaderboard.spec.js` | 16 | ELO display, rated matches, column layout |
 | `tournament.spec.js` | 26 | Robot selection, round-robin, standings, mode toggle, watch mode flow |
 | `robots.spec.js` | 12 | Robot list CRUD, color dot, editor navigation |
+| `sharing.spec.js` | 9 | Share/unshare toggle, API auth (401/404), hash URL routing, SharedRobotView |
 
 ### 9.4 Shared Helpers (`tests/helpers.js`)
 
@@ -1040,4 +1061,4 @@ tests/
 | 6 | Tick rate for real-time spectating? | **Deferred** | Not applicable until v2 backend is implemented |
 | 7 | Maximum program length? | **Open** | No hard limit in v1; stack capped at 256 entries; bytecode length unconstrained |
 | 8 | `.rw` file import in editor? | **Resolved** | Import and export both implemented in v1.1 |
-| 9 | Tournament formats beyond round robin? | **Open** | Single and double elimination deferred to v2 |
+| 9 | Tournament formats beyond round robin? | **Resolved** | Double elimination implemented in v0.8; single elimination not planned |
