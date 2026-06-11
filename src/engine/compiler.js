@@ -90,8 +90,10 @@ function tokenize(source) {
   const allTokens = [];
 
   for (const line of source.split('\n')) {
-    const stripped = line.split(';')[0];
-    const parts = stripped.trim().split(/\s+/).filter(Boolean);
+    const stripped = line.split(';')[0].trim();
+    // #HARDWARE directives are handled by parseHardwareDirectives(), not the compiler
+    if (stripped.startsWith('#HARDWARE')) continue;
+    const parts = stripped.split(/\s+/).filter(Boolean);
     allTokens.push(...parts);
   }
 
@@ -283,6 +285,31 @@ export function compile(source) {
   const labels = collectLabels(tokens, defines);
   const { bytecode, errors } = emitBytecode(tokens, defines, labels);
   return { bytecode, errors };
+}
+
+/**
+ * Parse #HARDWARE directives from program source and return a partial hardware
+ * object containing only the keys that are explicitly specified.
+ * Returns null if no #HARDWARE directives are present.
+ *
+ * Example:
+ *   #HARDWARE weapon=missile armor=3 engine=2
+ */
+export function parseHardwareDirectives(source) {
+  const hw = {};
+  for (const line of source.split('\n')) {
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith('#HARDWARE')) continue;
+    const parts = trimmed.slice('#HARDWARE'.length).trim().split(/\s+/);
+    for (const part of parts) {
+      const eq = part.indexOf('=');
+      if (eq < 1) continue;
+      const k = part.slice(0, eq);
+      const v = part.slice(eq + 1);
+      if (k && v !== '') hw[k] = isNaN(v) ? v : parseInt(v, 10);
+    }
+  }
+  return Object.keys(hw).length > 0 ? hw : null;
 }
 
 /**

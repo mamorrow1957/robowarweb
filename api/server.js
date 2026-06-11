@@ -83,6 +83,7 @@ if (!cols.includes('email_verified')) {
 
 const robotCols = db.prepare("PRAGMA table_info(robots)").all().map(c => c.name);
 if (!robotCols.includes('is_public'))     db.exec("ALTER TABLE robots ADD COLUMN is_public INTEGER DEFAULT 0");
+if (!robotCols.includes('share_token'))    db.exec('ALTER TABLE robots ADD COLUMN share_token TEXT');
 
 // Unique index on email (only non-null values)
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`);
@@ -540,7 +541,11 @@ app.delete('/api/auth/account', auth, async (req, res) => {
 // ── Admin: robot management ───────────────────────────────────
 app.get('/api/admin/users/:id/robots', auth, adminOnly, (req, res) => {
   const robots = db.prepare('SELECT * FROM robots WHERE user_id = ?').all(req.params.id);
-  res.json(robots.map(r => ({ ...r, hardware: JSON.parse(r.hardware) })));
+  res.json(robots.map(r => {
+    let hardware = r.hardware;
+    try { hardware = JSON.parse(r.hardware); } catch { /* leave as raw string */ }
+    return { ...r, hardware };
+  }));
 });
 
 app.delete('/api/admin/robots/:robotId/user/:userId', auth, adminOnly, (req, res) => {

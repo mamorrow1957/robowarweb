@@ -8,7 +8,7 @@ export default function VerifyEmailModal({ token, onSuccess, onClose }) {
   useEffect(() => {
     apiFetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
       .then(data => {
-        saveSession(data.token, data.username, data.is_admin, !!data.email);
+        saveSession(data.token, data.username, data.is_admin, data.has_email);
         setStatus('success');
         setTimeout(onSuccess, 1500);
       })

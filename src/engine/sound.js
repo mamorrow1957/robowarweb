@@ -102,6 +102,38 @@ export function setMuted(v) {
   try { localStorage.setItem('robowar_muted', String(v)); } catch { /* ignore */ }
 }
 
+/** Play a collision scrape — grating noise burst with a low dissonant tone. */
+export function playCollision() {
+  if (_muted) return;
+  try {
+    const a = ac();
+    if (!a) return;
+    // White noise filtered to mid-range: harsh scraping texture
+    const bufSize = Math.floor(a.sampleRate * 0.12);
+    const buf = a.createBuffer(1, bufSize, a.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 1.2);
+    }
+    const src    = a.createBufferSource();
+    src.buffer   = buf;
+    const filter = a.createBiquadFilter();
+    filter.type            = 'bandpass';
+    filter.frequency.value = 900;
+    filter.Q.value         = 0.8;
+    const gain = a.createGain();
+    gain.gain.setValueAtTime(0.55, a.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.12);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(a.destination);
+    src.start();
+    // Low dissonant sawtooth underneath
+    playTone(55, 0.10, 0.18, 'sawtooth', 40);
+    playTone(58, 0.10, 0.12, 'sawtooth', 43);
+  } catch { /* ignore */ }
+}
+
 /**
  * Play a fire sound.
  * @param {string} weaponType - 'bullet' | 'missile' | 'drone' | 'triple'

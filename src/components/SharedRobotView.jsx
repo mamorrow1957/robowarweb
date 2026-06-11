@@ -1,23 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { getSharedRobot } from '../apiStorage.js';
+import { getSharedRobot, getRobotByToken } from '../apiStorage.js';
 import { calcHardwareCost } from '../engine/hardware.js';
 
-export default function SharedRobotView({ robotId, navigate }) {
+export default function SharedRobotView({ robotId, shareToken, navigate, onClose }) {
   const [robot, setRobot] = useState(null);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    getSharedRobot(robotId)
+    const fetch = shareToken
+      ? getRobotByToken(shareToken)
+      : getSharedRobot(robotId);
+    fetch
       .then(setRobot)
-      .catch(() => setError('This robot could not be found or is no longer shared.'));
-  }, [robotId]);
+      .catch(() => setError(
+        shareToken
+          ? 'This share link is invalid or has been revoked.'
+          : 'This robot could not be found or is no longer shared.'
+      ));
+  }, [robotId, shareToken]);
 
   if (error) {
     return (
       <div style={{ padding: 32 }}>
         <p style={{ color: 'var(--text-dim)' }}>{error}</p>
-        <button className="btn" onClick={() => navigate('robots')}>← My Robots</button>
+        <button className="btn" onClick={() => onClose ? onClose() : navigate('robots')}>← Back</button>
       </div>
     );
   }
@@ -27,11 +34,14 @@ export default function SharedRobotView({ robotId, navigate }) {
   const cost = calcHardwareCost(robot.hardware);
 
   function handleBattle() {
+    if (onClose) onClose();
     navigate('battle-setup', { preselected: [robot.id], extraRobots: [robot] });
   }
 
   function handleCopyLink() {
-    const url = `${window.location.origin}/#robot=${robotId}`;
+    const url = shareToken
+      ? `${window.location.origin}/#share=${shareToken}`
+      : `${window.location.origin}/#robot=${robotId}`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -53,7 +63,7 @@ export default function SharedRobotView({ robotId, navigate }) {
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn" onClick={handleCopyLink}>{copied ? 'Copied!' : 'Copy Link'}</button>
           <button className="btn primary" onClick={handleBattle}>Battle This Robot</button>
-          <button className="btn" onClick={() => navigate('robots')}>← My Robots</button>
+          <button className="btn" onClick={() => onClose ? onClose() : navigate('robots')}>← Back</button>
         </div>
       </div>
 

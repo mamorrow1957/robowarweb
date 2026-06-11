@@ -182,6 +182,7 @@ export class CombatEngine {
       if (r.x + ROBOT_RADIUS > this.width)   { r.x = this.width - ROBOT_RADIUS; r.vx = -Math.abs(r.vx);  r.sensors.COLLISION = 1; }
       if (r.y - ROBOT_RADIUS < 0)            { r.y = ROBOT_RADIUS;              r.vy =  Math.abs(r.vy);  r.sensors.COLLISION = 1; }
       if (r.y + ROBOT_RADIUS > this.height)  { r.y = this.height - ROBOT_RADIUS;r.vy = -Math.abs(r.vy);  r.sensors.COLLISION = 1; }
+      if (r.sensors.COLLISION) { this.applyDamage(r, 2); r.vm.beep = 1; }
     }
 
     // 5. Robot–robot collisions
@@ -224,6 +225,10 @@ export class CombatEngine {
 
           a.sensors.COLLISION = 1;
           b.sensors.COLLISION = 1;
+          this.applyDamage(a, 2);
+          this.applyDamage(b, 2);
+          a.vm.beep = 1;
+          b.vm.beep = 1;
         }
       }
     }

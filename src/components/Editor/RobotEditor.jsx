@@ -3,7 +3,7 @@ import { getRobotById, saveRobot, newRobotId } from "../../storage.js";
 import { saveRobotToAPI, getRobotsFromAPI, setRobotShared } from "../../apiStorage.js";
 import { isLoggedIn } from "../../auth.js";
 import { DEFAULT_HARDWARE, calcHardwareCost, HARDWARE_BUDGET } from '../../engine/hardware.js';
-import { compile } from '../../engine/compiler.js';
+import { compile, parseHardwareDirectives } from '../../engine/compiler.js';
 import HardwarePanel from './HardwarePanel.jsx';
 import ProgramEditor from './ProgramEditor.jsx';
 
@@ -54,11 +54,12 @@ function parseRwFile(text) {
 }
 
 export default function RobotEditor({ robotId, navigate }) {
-  const [robot, setRobot]       = useState(null);
-  const [errors, setErrors]     = useState([]);
-  const [saved, setSaved]       = useState(false);
-  const [isPublic, setIsPublic] = useState(false);
-  const [shareMsg, setShareMsg] = useState('');
+  const [robot, setRobot]               = useState(null);
+  const [errors, setErrors]             = useState([]);
+  const [saved, setSaved]               = useState(false);
+  const [isPublic, setIsPublic]         = useState(false);
+  const [shareMsg, setShareMsg]         = useState('');
+  const [hasHwDirectives, setHasHwDirectives] = useState(false);
   const importRef = useRef(null);
 
   useEffect(() => {
@@ -81,6 +82,16 @@ export default function RobotEditor({ robotId, navigate }) {
     if (!robot) return;
     const { errors: errs } = compile(robot.program || '');
     setErrors(errs);
+
+    const hwOverrides = parseHardwareDirectives(robot.program || '');
+    setHasHwDirectives(!!hwOverrides);
+    if (hwOverrides) {
+      setRobot(r => {
+        const merged = { ...r.hardware, ...hwOverrides };
+        if (JSON.stringify(merged) === JSON.stringify(r.hardware)) return r;
+        return { ...r, hardware: merged };
+      });
+    }
   }, [robot?.program]);
 
   function makeNew() {
@@ -178,7 +189,7 @@ export default function RobotEditor({ robotId, navigate }) {
           style={{ maxWidth: 300 }}
         />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input ref={importRef} type="file" style={{ display: 'none' }} onChange={handleImportFile} />
+          <input ref={importRef} type="file" accept=".rw" style={{ display: 'none' }} onChange={handleImportFile} />
           <button className="btn" onClick={handleImportClick}>Import .rw</button>
           <button className="btn" onClick={handleExport}>Export .rw</button>
           {isLoggedIn() && robotId && (
@@ -203,7 +214,11 @@ export default function RobotEditor({ robotId, navigate }) {
       </div>
 
       <div className="editor-layout">
-        <HardwarePanel hardware={robot.hardware} onChange={hw => update({ hardware: hw })} />
+        <HardwarePanel
+          hardware={robot.hardware}
+          onChange={hw => update({ hardware: hw })}
+          controlled={hasHwDirectives}
+        />
         <ProgramEditor value={robot.program} onChange={prog => update({ program: prog })} errors={errors} />
       </div>
     </div>

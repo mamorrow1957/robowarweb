@@ -21,7 +21,7 @@ export default function AccountModal({ onClose, isFirstLogin }) {
     setLoading(true);
     try {
       await updateEmail(email);
-      setEmailMsg('Email updated.');
+      setEmailMsg('Email saved.');
       setEmail('');
     } catch (err) {
       setEmailErr(err.message);
@@ -86,7 +86,11 @@ export default function AccountModal({ onClose, isFirstLogin }) {
 
         {tab === 'email' && !isFirstLogin && (
           <form onSubmit={handleEmailSubmit}>
-            {!hasEmail() && (
+            {hasEmail() ? (
+              <p className="auth-info">
+                ✓ You have an email address on file. Enter a new one below to update it.
+              </p>
+            ) : (
               <p className="auth-info">
                 ⚠ No email set — you won't be able to recover your password if you forget it.
               </p>

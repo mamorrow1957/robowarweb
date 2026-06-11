@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { getRobots, deleteRobot, saveRobot, newRobotId } from '../storage.js';
-import { getRobotsFromAPI, saveRobotToAPI, deleteRobotFromAPI, setRobotShared } from '../apiStorage.js';
+import { getRobotsFromAPI, saveRobotToAPI, deleteRobotFromAPI, setRobotShared, generateShareToken, revokeShareToken } from '../apiStorage.js';
 import { hasEmail } from '../auth.js';
 import { DEFAULT_HARDWARE, ROBOT_COLORS, calcHardwareCost } from '../engine/hardware.js';
 
@@ -111,6 +111,22 @@ export default function MyRobots({ navigate, loggedIn }) {
     navigator.clipboard.writeText(url).catch(() => {});
   }
 
+  async function handlePrivateLink(robot) {
+    try {
+      const { token } = await generateShareToken(robot.id);
+      const url = `${window.location.origin}/#share=${token}`;
+      navigator.clipboard.writeText(url).catch(() => {});
+      await loadRobots();
+    } catch { /* ignore */ }
+  }
+
+  async function handleRevokeLink(robotId) {
+    try {
+      await revokeShareToken(robotId);
+      await loadRobots();
+    } catch { /* ignore */ }
+  }
+
   function handleImportClick() {
     importRef.current?.click();
   }
@@ -148,6 +164,7 @@ export default function MyRobots({ navigate, loggedIn }) {
           <input
             ref={importRef}
             type="file"
+            accept=".rw"
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
@@ -187,6 +204,10 @@ export default function MyRobots({ navigate, loggedIn }) {
                   {r.is_public && (
                     <button className="btn small" onClick={() => handleCopyLink(r.id)}>Copy Link</button>
                   )}
+                  {r.share_token
+                    ? <button className="btn small" onClick={() => handleRevokeLink(r.id)}>Revoke Private Link</button>
+                    : <button className="btn small" onClick={() => handlePrivateLink(r)}>Private Link</button>
+                  }
                 </>
               )}
               <button className="btn small danger" onClick={() => handleDelete(r.id)}>Delete</button>

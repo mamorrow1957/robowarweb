@@ -11,6 +11,7 @@ export default function AdminPanel({ navigate }) {
   const [robotsFor, setRobotsFor] = useState(null);
   const [robots, setRobots]       = useState([]);
   const [robotsLoading, setRobotsLoading] = useState(false);
+  const [robotsError, setRobotsError]     = useState(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -31,9 +32,13 @@ export default function AdminPanel({ navigate }) {
   async function unban(id)  { await apiFetch(`/api/admin/users/${id}/unban`,  { method: 'POST' }); loadUsers(); }
   async function unlock(id) { await apiFetch(`/api/admin/users/${id}/unlock`, { method: 'POST' }); loadUsers(); }
   async function verifyEmail(id) {
-    await apiFetch(`/api/admin/users/${id}/verify-email`, { method: 'POST' });
-    flash('Email verified.');
-    loadUsers();
+    try {
+      await apiFetch(`/api/admin/users/${id}/verify-email`, { method: 'POST' });
+      flash('Email verified.');
+      loadUsers();
+    } catch (err) {
+      flash(err.message || 'Failed to verify email.');
+    }
   }
   async function del(id) {
     if (!confirm('Delete this user and all their robots?')) return;
@@ -67,13 +72,15 @@ export default function AdminPanel({ navigate }) {
   }
 
   async function toggleRobots(userId) {
-    if (robotsFor === userId) { setRobotsFor(null); return; }
+    if (robotsFor === userId) { setRobotsFor(null); setRobotsError(null); return; }
     setRobotsFor(userId);
+    setRobotsError(null);
     setRobotsLoading(true);
     try {
       setRobots(await apiFetch(`/api/admin/users/${userId}/robots`));
-    } catch {
+    } catch (err) {
       setRobots([]);
+      setRobotsError(err.message || 'Failed to load robots.');
     } finally {
       setRobotsLoading(false);
     }
@@ -129,12 +136,12 @@ export default function AdminPanel({ navigate }) {
                         {u.email && !u.email_verified && (
                           <button onClick={() => verifyEmail(u.id)}>Verify Email</button>
                         )}
-                        <button onClick={() => toggleRobots(u.id)}>
-                          {robotsFor === u.id ? 'Hide Robots' : 'Robots'}
-                        </button>
                         <button className="admin-delete" onClick={() => del(u.id)}>Delete</button>
                       </>
                     )}
+                    <button onClick={() => toggleRobots(u.id)}>
+                      {robotsFor === u.id ? 'Hide Robots' : 'Robots'}
+                    </button>
                     <div className="admin-reset-pw">
                       <input
                         type="password"
@@ -160,6 +167,8 @@ export default function AdminPanel({ navigate }) {
                     <td colSpan={6} style={{ padding: '0 0 12px 24px', background: 'var(--surface)' }}>
                       {robotsLoading ? (
                         <p style={{ color: 'var(--text-dim)', margin: '8px 0' }}>Loading robots…</p>
+                      ) : robotsError ? (
+                        <p style={{ color: 'var(--red)', margin: '8px 0' }}>{robotsError}</p>
                       ) : robots.length === 0 ? (
                         <p style={{ color: 'var(--text-dim)', margin: '8px 0' }}>No robots.</p>
                       ) : (
@@ -186,7 +195,6 @@ export default function AdminPanel({ navigate }) {
           </tbody>
         </table>
       )}
-      <button className="auth-switch" onClick={() => navigate('robots')}>← Back</button>
     </div>
   );
 }
