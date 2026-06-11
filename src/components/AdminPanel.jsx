@@ -31,9 +31,13 @@ export default function AdminPanel({ navigate }) {
   async function unban(id)  { await apiFetch(`/api/admin/users/${id}/unban`,  { method: 'POST' }); loadUsers(); }
   async function unlock(id) { await apiFetch(`/api/admin/users/${id}/unlock`, { method: 'POST' }); loadUsers(); }
   async function verifyEmail(id) {
-    await apiFetch(`/api/admin/users/${id}/verify-email`, { method: 'POST' });
-    flash('Email verified.');
-    loadUsers();
+    try {
+      await apiFetch(`/api/admin/users/${id}/verify-email`, { method: 'POST' });
+      flash('Email verified.');
+      loadUsers();
+    } catch (err) {
+      flash(err.message || 'Failed to verify email.');
+    }
   }
   async function del(id) {
     if (!confirm('Delete this user and all their robots?')) return;
@@ -129,12 +133,12 @@ export default function AdminPanel({ navigate }) {
                         {u.email && !u.email_verified && (
                           <button onClick={() => verifyEmail(u.id)}>Verify Email</button>
                         )}
-                        <button onClick={() => toggleRobots(u.id)}>
-                          {robotsFor === u.id ? 'Hide Robots' : 'Robots'}
-                        </button>
                         <button className="admin-delete" onClick={() => del(u.id)}>Delete</button>
                       </>
                     )}
+                    <button onClick={() => toggleRobots(u.id)}>
+                      {robotsFor === u.id ? 'Hide Robots' : 'Robots'}
+                    </button>
                     <div className="admin-reset-pw">
                       <input
                         type="password"
