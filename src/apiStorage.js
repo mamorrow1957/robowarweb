@@ -15,3 +15,11 @@ export async function saveRobotToAPI(robot) {
 export async function deleteRobotFromAPI(id) {
   return apiFetch(`/api/robots/${id}`, { method: 'DELETE' });
 }
+
+export async function setRobotShared(id, shared) {
+  return apiFetch(`/api/robots/${id}/share`, { method: shared ? 'POST' : 'DELETE' });
+}
+
+export async function getSharedRobot(id) {
+  return apiFetch(`/api/robots/shared/${id}`);
+}
