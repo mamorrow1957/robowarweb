@@ -3,7 +3,7 @@ import ArenaCanvas from './ArenaCanvas.jsx';
 import DebugPanel from './DebugPanel.jsx';
 import {
   getMuted, setMuted as soundSetMuted, unlockAudio,
-  playFire, playHit, playExplosion, playVictory,
+  playFire, playHit, playExplosion, playVictory, playCollision,
 } from '../../engine/sound.js';
 
 const SPEEDS = [0.1, 0.25, 1, 5, 20, 'max'];
@@ -284,6 +284,16 @@ export default function BattleViewer({
         if (robot.alive) continue;
         const prevRobot = prev.robots.find(r => r.id === robot.id);
         if (prevRobot?.alive) playExplosion();
+      }
+
+      // Collision: any robot collided this tick (engine-set beep on collision)
+      let collisionPlayed = false;
+      for (const robot of frame.robots) {
+        if (!robot.alive || collisionPlayed) continue;
+        if (robot.debug?.sensors?.COLLISION && robot.debug?.actuators?.beep > 0) {
+          playCollision();
+          collisionPlayed = true;
+        }
       }
 
       // Victory: result appeared for first time
