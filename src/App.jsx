@@ -13,6 +13,7 @@ import AccountModal from './components/AccountModal.jsx';
 import ForgotPasswordModal from './components/ForgotPasswordModal.jsx';
 import SharedRobotView from './components/SharedRobotView.jsx';
 import VerifyEmailModal from './components/VerifyEmailModal.jsx';
+import PublicRobots from './components/PublicRobots.jsx';
 import { isLoggedIn, isAdmin, saveSession } from './auth.js';
 
 export default function App() {
@@ -119,6 +120,8 @@ export default function App() {
         return <TournamentBrowser navigate={navigate} />;
       case 'leaderboard':
         return <Leaderboard navigate={navigate} />;
+      case 'public-robots':
+        return <PublicRobots navigate={navigate} />;
       default:
         return <MyRobots navigate={navigate} loggedIn={loggedIn} />;
     }
