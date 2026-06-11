@@ -168,7 +168,7 @@ test('change password success shows confirmation', async ({ page }) => {
 
 async function simulateNoEmail(page) {
   await page.evaluate(() => localStorage.setItem('robowar_has_email', '0'));
-  await page.reload();
+  await loadApp(page);
   await page.locator('.nav-user').waitFor();
 }
 
