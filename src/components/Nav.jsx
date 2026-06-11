@@ -6,6 +6,7 @@ const LINKS = [
   { id: 'battle-setup',label: 'Battle'      },
   { id: 'tournament',  label: 'Tournament'  },
   { id: 'leaderboard', label: 'Leaderboard' },
+  { id: 'public-robots', label: 'Public Robots', authOnly: true },
 ];
 
 export default function Nav({ page, navigate, onAuthChange }) {
@@ -20,7 +21,7 @@ export default function Nav({ page, navigate, onAuthChange }) {
   return (
     <nav className="nav">
       <span className="nav-brand">RoboWar</span>
-      {LINKS.map(l => (
+      {LINKS.filter(l => !l.authOnly || user).map(l => (
         <button
           key={l.id}
           className={`nav-btn${page === l.id ? ' active' : ''}`}
