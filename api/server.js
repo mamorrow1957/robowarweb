@@ -83,6 +83,7 @@ if (!cols.includes('email_verified')) {
 
 const robotCols = db.prepare("PRAGMA table_info(robots)").all().map(c => c.name);
 if (!robotCols.includes('is_public'))     db.exec("ALTER TABLE robots ADD COLUMN is_public INTEGER DEFAULT 0");
+if (!robotCols.includes('share_token'))    db.exec('ALTER TABLE robots ADD COLUMN share_token TEXT');
 
 // Unique index on email (only non-null values)
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL`);
