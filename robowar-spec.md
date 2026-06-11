@@ -809,6 +809,20 @@ Guest mode is fully supported — users who have not logged in continue to use `
 
 **Banned users** receive a `403` response with the message "Your account has been banned." on login and cannot access the app.
 
+**Account lockout** — After **5 consecutive failed login attempts** (wrong password), the account is locked. Subsequent login attempts return `403` with "Account locked due to too many failed login attempts. Please contact an administrator." even if the correct password is supplied. On lockout, an email notification is sent to the admin address (`ADMIN_EMAIL` env var, or the admin account's email). Admin accounts are **never locked** (locking admin would create an unrecoverable situation). A successful login resets the attempt counter. Only an admin can unlock a locked account via the admin panel.
+
+**Rate limiting** — Auth endpoints (`/register`, `/login`, `/forgot-password`) are limited to **20 requests per 15 minutes per IP** in production. Rate limiting is disabled in the CI test environment (`JWT_SECRET === 'ci-test-secret'`).
+
+**Username rules** — 2–32 characters; letters, digits, `_`, and `-` only.
+
+**Security headers** — `X-Powered-By` header is suppressed. CORS is restricted to the production origin and localhost dev/preview ports. Stack traces are never returned to clients (generic "Internal server error" for 5xx).
+
+**Password reset** — Reset tokens are delivered via URL hash fragment (`/#reset=TOKEN`) so the token is never sent to the server in the request log. Tokens expire after 1 hour.
+
+**JWT revocation** — Tokens include a `jti` (JWT ID) claim. On logout the `jti` is stored in a `revoked_tokens` table and the server rejects any request using that token, even before the 30-day expiry.
+
+**Email uniqueness** — The `email` column has a partial unique index: `WHERE email IS NOT NULL`. A user can clear their email (set to `null`) and another user may then claim that address.
+
 ### 7.2 API Endpoints (implemented)
 
 All endpoints are served at `/api/*` by the Express process; Nginx proxies them from the public HTTPS URL.
@@ -825,10 +839,15 @@ All endpoints are served at `/api/*` by the Express process; Nginx proxies them 
 | `PUT` | `/api/robots/:id` | Bearer JWT | Upsert (create or update) a robot |
 | `DELETE` | `/api/robots/:id` | Bearer JWT | Delete a robot |
 | `GET` | `/api/admin/users` | Bearer JWT + admin | List all user accounts |
+| `POST` | `/api/auth/logout` | Bearer JWT | Revoke current token (server-side logout) |
+| `GET` | `/api/admin/users` | Bearer JWT + admin | List all user accounts |
 | `POST` | `/api/admin/users/:id/ban` | Bearer JWT + admin | Ban a user (cannot ban admin) |
 | `POST` | `/api/admin/users/:id/unban` | Bearer JWT + admin | Unban a user |
+| `POST` | `/api/admin/users/:id/unlock` | Bearer JWT + admin | Unlock a locked account and reset attempt counter |
 | `POST` | `/api/admin/users/:id/reset-password` | Bearer JWT + admin | Force-set a user's password |
+| `POST` | `/api/admin/users/:id/update-email` | Bearer JWT + admin | Set or clear a user's email address |
 | `DELETE` | `/api/admin/users/:id` | Bearer JWT + admin | Delete user and all their robots |
+| `DELETE` | `/api/test/cleanup` | None (test mode only) | Delete all non-admin users and their robots |
 
 Request bodies and responses use JSON. Auth-required endpoints return `401` if no token is provided or the token is invalid/expired. Admin-only endpoints return `403` for non-admin tokens.
 
@@ -955,7 +974,7 @@ Run the suite: `npm test` (or `./node_modules/.bin/playwright test`)
 ```
 tests/
 ├── helpers.js              — shared utilities (loadApp, resetApp, seedRobots, …)
-├── admin.spec.js           — forgot password, change password, admin nav, banned user
+├── admin.spec.js           — forgot password, account modal, change password, email nudge, admin nav, lockout, banned user
 ├── auth.spec.js            — login/register modal, nav auth state, error cases
 ├── navigation.spec.js      — splash page, credits, nav bar, page routing
 ├── robots.spec.js          — My Robots list (CRUD, display)
@@ -973,7 +992,7 @@ tests/
 
 | File | Tests | Coverage area |
 |---|---|---|
-| `admin.spec.js` | 22 | Forgot password flow, change password, admin nav visibility, banned-user error |
+| `admin.spec.js` | 35 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API |
 | `auth.spec.js` | 23 | Login/register modal, nav auth state, nudge banner, error cases |
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |

@@ -340,3 +340,88 @@ test('unlock endpoint resets lock so user can log in again', async ({ page }) =>
   await page.locator('.auth-submit').click();
   await expect(page.locator('.nav-user')).toContainText(username);
 });
+
+// ── Admin panel lockout display ───────────────────────────────
+
+async function loginAsAdmin(page) {
+  // In CI the admin has password_set=0; use the first-login API shortcut
+  // then inject the token directly into localStorage so the app treats
+  // the browser session as logged-in admin without going through the UI.
+  const { token, username, is_admin } = await page.evaluate(async () => {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: '' }),
+    });
+    if (!r.ok) throw new Error(`Admin login failed: ${r.status}`);
+    return r.json();
+  });
+  await page.evaluate(({ token, username, is_admin }) => {
+    localStorage.setItem('robowar_token', token);
+    localStorage.setItem('robowar_user', username);
+    localStorage.setItem('robowar_is_admin', is_admin ? '1' : '0');
+  }, { token, username, is_admin });
+  await page.reload();
+  await page.locator('.nav', { timeout: 5000 }).waitFor();
+}
+
+test('locked account shows Locked status in admin panel', async ({ page }) => {
+  const { username } = await registerUser(page, 'lkui1');
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
+  // Lock the account
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate(async ({ username }) => {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: 'wrongpassword' }),
+      });
+    }, { username });
+  }
+  // Log in as admin via localStorage injection
+  await loginAsAdmin(page);
+  await page.locator('.nav-admin').click();
+  const row = page.locator('tr', { hasText: username });
+  await expect(row).toContainText('Locked');
+});
+
+test('locked account shows Unlock button in admin panel', async ({ page }) => {
+  const { username } = await registerUser(page, 'lkui2');
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate(async ({ username }) => {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: 'wrongpassword' }),
+      });
+    }, { username });
+  }
+  await loginAsAdmin(page);
+  await page.locator('.nav-admin').click();
+  const row = page.locator('tr', { hasText: username });
+  await expect(row.locator('button', { hasText: 'Unlock' })).toBeVisible();
+});
+
+test('clicking Unlock in admin panel restores Active status', async ({ page }) => {
+  const { username } = await registerUser(page, 'lkui3');
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate(async ({ username }) => {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: 'wrongpassword' }),
+      });
+    }, { username });
+  }
+  await loginAsAdmin(page);
+  await page.locator('.nav-admin').click();
+  const row = page.locator('tr', { hasText: username });
+  await row.locator('button', { hasText: 'Unlock' }).click();
+  await expect(row).toContainText('Active');
+  await expect(row.locator('button', { hasText: 'Unlock' })).not.toBeVisible();
+});
