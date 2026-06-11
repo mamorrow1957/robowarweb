@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { changePassword, updateEmail, isAdmin, hasEmail } from '../auth.js';
+import { changePassword, updateEmail, isAdmin, hasEmail, apiFetch, clearSession } from '../auth.js';
 
 export default function AccountModal({ onClose, isFirstLogin }) {
   const [tab, setTab]           = useState(isFirstLogin ? 'password' : 'email');
@@ -11,6 +11,8 @@ export default function AccountModal({ onClose, isFirstLogin }) {
   const [confirm, setConfirm]   = useState('');
   const [pwMsg, setPwMsg]       = useState('');
   const [pwErr, setPwErr]       = useState('');
+  const [delPw, setDelPw]       = useState('');
+  const [delErr, setDelErr]     = useState('');
   const [loading, setLoading]   = useState(false);
 
   async function handleEmailSubmit(e) {
@@ -45,6 +47,25 @@ export default function AccountModal({ onClose, isFirstLogin }) {
     }
   }
 
+  async function handleDelete(e) {
+    e.preventDefault();
+    setDelErr('');
+    if (!window.confirm('This will permanently delete your account and all your robots. Are you sure?')) return;
+    setLoading(true);
+    try {
+      await apiFetch('/api/auth/account', {
+        method: 'DELETE',
+        body: JSON.stringify({ password: delPw }),
+      });
+      clearSession();
+      onClose();
+    } catch (err) {
+      setDelErr(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="auth-overlay">
       <div className="auth-modal">
@@ -55,18 +76,11 @@ export default function AccountModal({ onClose, isFirstLogin }) {
 
         {!isFirstLogin && (
           <div className="account-tabs">
-            <button
-              className={`account-tab${tab === 'email' ? ' active' : ''}`}
-              onClick={() => setTab('email')}
-            >
-              Email
-            </button>
-            <button
-              className={`account-tab${tab === 'password' ? ' active' : ''}`}
-              onClick={() => setTab('password')}
-            >
-              Password
-            </button>
+            <button className={`account-tab${tab === 'email' ? ' active' : ''}`} onClick={() => setTab('email')}>Email</button>
+            <button className={`account-tab${tab === 'password' ? ' active' : ''}`} onClick={() => setTab('password')}>Password</button>
+            {!isAdmin() && (
+              <button className={`account-tab${tab === 'delete' ? ' active' : ''}`} onClick={() => setTab('delete')}>Delete Account</button>
+            )}
           </div>
         )}
 
@@ -79,20 +93,11 @@ export default function AccountModal({ onClose, isFirstLogin }) {
             )}
             <label>
               Email Address
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                autoFocus
-                required
-              />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoFocus required />
             </label>
             {emailErr && <div className="auth-error">{emailErr}</div>}
             {emailMsg && <div className="auth-success">{emailMsg}</div>}
-            <button type="submit" disabled={loading} className="auth-submit">
-              {loading ? 'Saving…' : 'Save Email'}
-            </button>
+            <button type="submit" disabled={loading} className="auth-submit">{loading ? 'Saving…' : 'Save Email'}</button>
           </form>
         )}
 
@@ -101,39 +106,37 @@ export default function AccountModal({ onClose, isFirstLogin }) {
             {!isFirstLogin && (
               <label>
                 Current Password
-                <input
-                  type="password"
-                  value={current}
-                  onChange={e => setCurrent(e.target.value)}
-                  required
-                  autoFocus
-                />
+                <input type="password" value={current} onChange={e => setCurrent(e.target.value)} required autoFocus />
               </label>
             )}
             <label>
               New Password
-              <input
-                type="password"
-                value={next}
-                onChange={e => setNext(e.target.value)}
-                required
-                autoFocus={isFirstLogin}
-                minLength={6}
-              />
+              <input type="password" value={next} onChange={e => setNext(e.target.value)} required autoFocus={isFirstLogin} minLength={6} />
             </label>
             <label>
               Confirm New Password
-              <input
-                type="password"
-                value={confirm}
-                onChange={e => setConfirm(e.target.value)}
-                required
-              />
+              <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required />
             </label>
             {pwErr && <div className="auth-error">{pwErr}</div>}
             {pwMsg && <div className="auth-success">{pwMsg}</div>}
             <button type="submit" disabled={loading} className="auth-submit">
               {loading ? 'Saving…' : isFirstLogin ? 'Set Password' : 'Change Password'}
+            </button>
+          </form>
+        )}
+
+        {tab === 'delete' && !isFirstLogin && (
+          <form onSubmit={handleDelete}>
+            <p style={{ color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
+              Deleting your account is <strong style={{ color: '#fff' }}>permanent and irreversible</strong>. All your robots will be deleted immediately.
+            </p>
+            <label>
+              Confirm with your password
+              <input type="password" value={delPw} onChange={e => setDelPw(e.target.value)} required autoFocus placeholder="Your current password" />
+            </label>
+            {delErr && <div className="auth-error">{delErr}</div>}
+            <button type="submit" disabled={loading} className="auth-submit" style={{ background: 'var(--red)' }}>
+              {loading ? 'Deleting…' : 'Delete My Account'}
             </button>
           </form>
         )}
