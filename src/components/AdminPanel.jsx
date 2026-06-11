@@ -195,7 +195,6 @@ export default function AdminPanel({ navigate }) {
           </tbody>
         </table>
       )}
-      <button className="auth-switch" onClick={() => navigate('robots')}>← Back</button>
     </div>
   );
 }
