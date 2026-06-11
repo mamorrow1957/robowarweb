@@ -958,3 +958,17 @@ body {
   padding: 12px 16px;
   white-space: pre;
 }
+
+.auth-privacy-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+.auth-privacy-agree {
+  width: auto;
+  margin: 0;
+}
