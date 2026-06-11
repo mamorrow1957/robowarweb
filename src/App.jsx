@@ -58,7 +58,7 @@ export default function App() {
 
   function handleAuthChange() {
     setLoggedIn(isLoggedIn());
-    navigate('robots');
+    navigate(isAdmin() ? 'admin' : 'robots');
   }
 
   function renderPage() {
@@ -111,7 +111,7 @@ export default function App() {
           />
         );
       case 'account':
-        return <AccountModal onClose={() => { setLoggedIn(isLoggedIn()); navigate('robots'); }} />;
+        return <AccountModal onClose={() => { setLoggedIn(isLoggedIn()); navigate(isAdmin() ? 'admin' : 'robots'); }} />;
       case 'admin':
         return isAdmin()
           ? <AdminPanel navigate={navigate} />
