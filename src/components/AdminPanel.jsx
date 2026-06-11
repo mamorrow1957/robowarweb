@@ -30,6 +30,11 @@ export default function AdminPanel({ navigate }) {
   async function ban(id)    { await apiFetch(`/api/admin/users/${id}/ban`,    { method: 'POST' }); loadUsers(); }
   async function unban(id)  { await apiFetch(`/api/admin/users/${id}/unban`,  { method: 'POST' }); loadUsers(); }
   async function unlock(id) { await apiFetch(`/api/admin/users/${id}/unlock`, { method: 'POST' }); loadUsers(); }
+  async function verifyEmail(id) {
+    await apiFetch(`/api/admin/users/${id}/verify-email`, { method: 'POST' });
+    flash('Email verified.');
+    loadUsers();
+  }
   async function del(id) {
     if (!confirm('Delete this user and all their robots?')) return;
     await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
@@ -94,6 +99,7 @@ export default function AdminPanel({ navigate }) {
             <tr>
               <th>Username</th>
               <th>Email</th>
+              <th>Verified</th>
               <th>Joined</th>
               <th>Status</th>
               <th>Actions</th>
@@ -105,6 +111,11 @@ export default function AdminPanel({ navigate }) {
                 <tr className={u.is_locked ? 'admin-row-locked' : u.is_banned ? 'admin-row-banned' : ''}>
                   <td>{u.username}{u.is_admin ? ' 👑' : ''}</td>
                   <td>{u.email || <span style={{opacity:0.4}}>none</span>}</td>
+                  <td>
+                    {!u.email ? <span style={{opacity:0.4}}>—</span>
+                      : u.email_verified ? <span style={{color:'var(--green)'}}>✓</span>
+                      : <span style={{color:'var(--red)'}}>✗</span>}
+                  </td>
                   <td>{u.created_at?.slice(0, 10)}</td>
                   <td>{u.is_locked ? `Locked (${u.login_attempts} attempts)` : u.is_banned ? 'Banned' : 'Active'}</td>
                   <td className="admin-actions">
@@ -115,6 +126,9 @@ export default function AdminPanel({ navigate }) {
                           ? <button onClick={() => unban(u.id)}>Unban</button>
                           : <button onClick={() => ban(u.id)}>Ban</button>
                         }
+                        {u.email && !u.email_verified && (
+                          <button onClick={() => verifyEmail(u.id)}>Verify Email</button>
+                        )}
                         <button onClick={() => toggleRobots(u.id)}>
                           {robotsFor === u.id ? 'Hide Robots' : 'Robots'}
                         </button>
@@ -143,7 +157,7 @@ export default function AdminPanel({ navigate }) {
                 </tr>
                 {robotsFor === u.id && (
                   <tr>
-                    <td colSpan={5} style={{ padding: '0 0 12px 24px', background: 'var(--surface)' }}>
+                    <td colSpan={6} style={{ padding: '0 0 12px 24px', background: 'var(--surface)' }}>
                       {robotsLoading ? (
                         <p style={{ color: 'var(--text-dim)', margin: '8px 0' }}>Loading robots…</p>
                       ) : robots.length === 0 ? (
@@ -151,20 +165,14 @@ export default function AdminPanel({ navigate }) {
                       ) : (
                         <table className="admin-table" style={{ marginTop: 8 }}>
                           <thead>
-                            <tr>
-                              <th>Name</th>
-                              <th>Shared</th>
-                              <th>Actions</th>
-                            </tr>
+                            <tr><th>Name</th><th>Shared</th><th>Actions</th></tr>
                           </thead>
                           <tbody>
                             {robots.map(r => (
                               <tr key={r.id}>
                                 <td>{r.name}</td>
                                 <td>{r.is_public ? 'Yes' : 'No'}</td>
-                                <td>
-                                  <button className="admin-delete" onClick={() => deleteRobot(r.id, u.id)}>Delete</button>
-                                </td>
+                                <td><button className="admin-delete" onClick={() => deleteRobot(r.id, u.id)}>Delete</button></td>
                               </tr>
                             ))}
                           </tbody>

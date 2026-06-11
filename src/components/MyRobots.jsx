@@ -103,8 +103,12 @@ export default function MyRobots({ navigate, loggedIn }) {
     if (sharing) {
       const url = `${window.location.origin}/#robot=${robot.id}`;
       navigator.clipboard.writeText(url).catch(() => {});
-      alert(`Sharing enabled — link copied to clipboard:\n${url}`);
     }
+  }
+
+  function handleCopyLink(robotId) {
+    const url = `${window.location.origin}/#robot=${robotId}`;
+    navigator.clipboard.writeText(url).catch(() => {});
   }
 
   function handleImportClick() {
@@ -176,9 +180,14 @@ export default function MyRobots({ navigate, loggedIn }) {
               <button className="btn small" onClick={() => handleEdit(r.id)}>Edit</button>
               <button className="btn small" onClick={() => handleBattle(r.id)}>Battle</button>
               {loggedIn && (
-                <button className="btn small" onClick={() => handleShare(r)}>
-                  {r.is_public ? 'Unshare' : 'Share'}
-                </button>
+                <>
+                  <button className="btn small" onClick={() => handleShare(r)}>
+                    {r.is_public ? 'Unshare' : 'Share'}
+                  </button>
+                  {r.is_public && (
+                    <button className="btn small" onClick={() => handleCopyLink(r.id)}>Copy Link</button>
+                  )}
+                </>
               )}
               <button className="btn small danger" onClick={() => handleDelete(r.id)}>Delete</button>
             </div>
