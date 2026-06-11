@@ -346,9 +346,8 @@ test('unlock endpoint resets lock so user can log in again', async ({ page }) =>
 const ADMIN_TEST_PASSWORD = 'AdminTest123!';
 
 async function loginAsAdmin(page) {
-  // In CI the admin starts with password_set=0 (first-login bypass).
-  // We must set a real password so the app doesn't show the set-password
-  // screen on reload. On subsequent calls the password is already set.
+  // If admin still has password_set=0 (CI fresh DB), set a real password first
+  // using the first-login bypass, so the app won't force the set-password screen.
   const firstLogin = await page.evaluate(async () => {
     const r = await fetch('/api/auth/login', {
       method: 'POST',
@@ -358,46 +357,26 @@ async function loginAsAdmin(page) {
     return { ok: r.ok, data: r.ok ? await r.json() : null };
   });
 
-  let loginData;
   if (firstLogin.ok) {
-    // Set a real password so the app won't force the set-password screen
-    await page.evaluate(async ({ token, pwd }) => {
-      await fetch('/api/auth/change-password', {
+    const cpStatus = await page.evaluate(async ({ token, pwd }) => {
+      const r = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ newPassword: pwd }),
       });
+      return r.status;
     }, { token: firstLogin.data.token, pwd: ADMIN_TEST_PASSWORD });
-    // Re-login with the real password to get a normal session token
-    loginData = await page.evaluate(async ({ pwd }) => {
-      const r = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admin', password: pwd }),
-      });
-      if (!r.ok) throw new Error(`Admin re-login failed: ${r.status}`);
-      return r.json();
-    }, { pwd: ADMIN_TEST_PASSWORD });
-  } else {
-    // Password already set — use the test password
-    loginData = await page.evaluate(async ({ pwd }) => {
-      const r = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admin', password: pwd }),
-      });
-      if (!r.ok) throw new Error(`Admin login failed: ${r.status}`);
-      return r.json();
-    }, { pwd: ADMIN_TEST_PASSWORD });
+    if (cpStatus !== 200) throw new Error(`Admin change-password failed: ${cpStatus}`);
   }
 
-  await page.evaluate(({ token, username, is_admin }) => {
-    localStorage.setItem('robowar_token', token);
-    localStorage.setItem('robowar_user', username);
-    localStorage.setItem('robowar_is_admin', is_admin ? '1' : '0');
-  }, loginData);
-  await page.reload();
-  await page.locator('.nav', { timeout: 5000 }).waitFor();
+  // Log in via the UI — more reliable than localStorage injection + reload
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/');
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
+  await page.locator('.auth-modal input[type="text"]').fill('admin');
+  await page.locator('.auth-modal input[type="password"]').fill(ADMIN_TEST_PASSWORD);
+  await page.locator('.auth-submit').click();
+  await page.locator('.nav-user').waitFor();
 }
 
 test('locked account shows Locked status in admin panel', async ({ page }) => {
