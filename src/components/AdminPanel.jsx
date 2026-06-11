@@ -11,6 +11,7 @@ export default function AdminPanel({ navigate }) {
   const [robotsFor, setRobotsFor] = useState(null);
   const [robots, setRobots]       = useState([]);
   const [robotsLoading, setRobotsLoading] = useState(false);
+  const [robotsError, setRobotsError]     = useState(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -71,13 +72,15 @@ export default function AdminPanel({ navigate }) {
   }
 
   async function toggleRobots(userId) {
-    if (robotsFor === userId) { setRobotsFor(null); return; }
+    if (robotsFor === userId) { setRobotsFor(null); setRobotsError(null); return; }
     setRobotsFor(userId);
+    setRobotsError(null);
     setRobotsLoading(true);
     try {
       setRobots(await apiFetch(`/api/admin/users/${userId}/robots`));
-    } catch {
+    } catch (err) {
       setRobots([]);
+      setRobotsError(err.message || 'Failed to load robots.');
     } finally {
       setRobotsLoading(false);
     }
@@ -164,6 +167,8 @@ export default function AdminPanel({ navigate }) {
                     <td colSpan={6} style={{ padding: '0 0 12px 24px', background: 'var(--surface)' }}>
                       {robotsLoading ? (
                         <p style={{ color: 'var(--text-dim)', margin: '8px 0' }}>Loading robots…</p>
+                      ) : robotsError ? (
+                        <p style={{ color: 'var(--red)', margin: '8px 0' }}>{robotsError}</p>
                       ) : robots.length === 0 ? (
                         <p style={{ color: 'var(--text-dim)', margin: '8px 0' }}>No robots.</p>
                       ) : (
