@@ -38,13 +38,22 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-export async function register(username, password) {
+export async function register(username, password, email) {
   const data = await apiFetch('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, email, privacyAgreed: true }),
   });
-  saveSession(data.token, data.username, data.is_admin, data.has_email);
+  // In IS_TEST mode the server returns a token immediately (auto-verified).
+  // In production it returns { pending: true } — no session to save yet.
+  if (data.token) saveSession(data.token, data.username, data.is_admin, !!data.email);
   return data;
+}
+
+export async function resendVerification(email) {
+  return apiFetch('/api/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
 }
 
 export async function login(username, password) {
