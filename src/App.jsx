@@ -11,6 +11,8 @@ import AuthModal from './components/AuthModal.jsx';
 import AdminPanel from './components/AdminPanel.jsx';
 import AccountModal from './components/AccountModal.jsx';
 import ForgotPasswordModal from './components/ForgotPasswordModal.jsx';
+import SharedRobotView from './components/SharedRobotView.jsx';
+import VerifyEmailModal from './components/VerifyEmailModal.jsx';
 import { isLoggedIn, isAdmin, saveSession } from './auth.js';
 
 export default function App() {
@@ -19,14 +21,24 @@ export default function App() {
   const [params, setParams]         = useState({});
   const [loggedIn, setLoggedIn]     = useState(isLoggedIn());
   const [resetToken, setResetToken] = useState(null);
+  const [verifyToken, setVerifyToken] = useState(null);
 
   useEffect(() => {
-    // Parse reset token from hash fragment (never sent to server, not in logs)
     const hash = window.location.hash;
-    const match = hash.match(/[#&]reset=([^&]+)/);
-    if (match) {
-      setResetToken(match[1]);
+    const resetMatch  = hash.match(/[#&]reset=([^&]+)/);
+    const verifyMatch = hash.match(/[#&]verify=([^&]+)/);
+    const robotMatch  = hash.match(/[#&]robot=([^&]+)/);
+    if (resetMatch) {
+      setResetToken(resetMatch[1]);
       setShowSplash(false);
+      window.history.replaceState({}, '', '/');
+    } else if (verifyMatch) {
+      setVerifyToken(verifyMatch[1]);
+      setShowSplash(false);
+      window.history.replaceState({}, '', '/');
+    } else if (robotMatch) {
+      setShowSplash(false);
+      navigate('shared-robot', { robotId: robotMatch[1] });
       window.history.replaceState({}, '', '/');
     }
   }, []);
@@ -47,6 +59,15 @@ export default function App() {
         <ForgotPasswordModal
           resetToken={resetToken}
           onClose={() => { setResetToken(null); navigate('login'); }}
+        />
+      );
+    }
+    if (verifyToken) {
+      return (
+        <VerifyEmailModal
+          token={verifyToken}
+          onSuccess={() => { setVerifyToken(null); setLoggedIn(isLoggedIn()); navigate('robots'); }}
+          onClose={() => { setVerifyToken(null); navigate('login'); }}
         />
       );
     }
@@ -79,8 +100,19 @@ export default function App() {
         return <MyRobots navigate={navigate} loggedIn={loggedIn} />;
       case 'editor':
         return <RobotEditor robotId={params.robotId} navigate={navigate} loggedIn={loggedIn} />;
+      case 'shared-robot':
+        if (!loggedIn) {
+          return (
+            <AuthModal
+              onSuccess={() => setLoggedIn(isLoggedIn())}
+              onForgotPassword={() => navigate('forgot-password')}
+              onNeedSetPassword={() => { setLoggedIn(true); navigate('set-password'); }}
+            />
+          );
+        }
+        return <SharedRobotView robotId={params.robotId} navigate={navigate} />;
       case 'battle-setup':
-        return <BattleSetup preselected={params.preselected} navigate={navigate} />;
+        return <BattleSetup preselected={params.preselected} extraRobots={params.extraRobots || []} navigate={navigate} />;
       case 'battle':
         return <BattleViewer config={params.config} navigate={navigate} />;
       case 'tournament':

@@ -13,7 +13,9 @@ async function registerUser(page, suffix) {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill(password);
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.nav-user')).toBeVisible();
   return { username, password };

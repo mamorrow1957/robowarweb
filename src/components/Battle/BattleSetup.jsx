@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { getRobots } from '../../storage.js';
 import { ROBOT_COLORS, calcHardwareCost } from '../../engine/hardware.js';
 
-export default function BattleSetup({ preselected = [], navigate }) {
-  const robots = getRobots();
+export default function BattleSetup({ preselected = [], extraRobots = [], navigate }) {
+  const ownRobots = getRobots();
+  const robots = [...ownRobots, ...extraRobots.filter(er => !ownRobots.find(r => r.id === er.id))];
   const [selected, setSelected] = useState(new Set(preselected));
   const [arenaSize, setArenaSize] = useState('300');
   const [tickLimit, setTickLimit] = useState('2000');

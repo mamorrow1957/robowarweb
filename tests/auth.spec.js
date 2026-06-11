@@ -105,7 +105,9 @@ test('registering with new username logs in and shows username in nav', async ({
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.nav-user')).toBeVisible();
   await expect(page.locator('.nav-user')).toContainText(username);
@@ -116,7 +118,9 @@ test('after login auth modal is dismissed', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.auth-overlay')).not.toBeVisible();
 });
@@ -126,7 +130,9 @@ test('after login Log Out button is shown', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.nav-auth button', { hasText: 'Log Out' })).toBeVisible();
 });
@@ -136,7 +142,9 @@ test('after login Log In button is gone', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.nav-auth button', { hasText: 'Log In' })).not.toBeVisible();
 });
@@ -146,7 +154,9 @@ test('after login auth nudge is hidden', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.auth-nudge')).not.toBeVisible();
 });
@@ -156,7 +166,9 @@ test('logging out shows Log In button again', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
   await expect(page.locator('.nav-auth button', { hasText: 'Log In' })).toBeVisible();
@@ -167,7 +179,9 @@ test('logging out removes username from nav', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
   await expect(page.locator('.nav-user')).not.toBeVisible();
@@ -179,7 +193,9 @@ test('duplicate username shows error on register', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   // Log out
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
@@ -187,7 +203,9 @@ test('duplicate username shows error on register', async ({ page }) => {
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
+  await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
   await page.locator('.auth-modal input[type="password"]').fill('password123');
+  await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await expect(page.locator('.auth-error')).toBeVisible();
 });
