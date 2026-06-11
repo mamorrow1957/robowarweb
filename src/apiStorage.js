@@ -23,3 +23,7 @@ export async function setRobotShared(id, shared) {
 export async function getSharedRobot(id) {
   return apiFetch(`/api/robots/shared/${id}`);
 }
+
+export async function getPublicRobots() {
+  return apiFetch('/api/robots/public');
+}
