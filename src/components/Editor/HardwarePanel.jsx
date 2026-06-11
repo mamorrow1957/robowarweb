@@ -26,7 +26,7 @@ function levelLabel(key, lvl) {
   return `Level ${lvl} (${cost}pt)`;
 }
 
-export default function HardwarePanel({ hardware, onChange }) {
+export default function HardwarePanel({ hardware, onChange, controlled }) {
   const cost = calcHardwareCost(hardware);
   const remaining = HARDWARE_BUDGET - cost;
   const barPct = Math.min(100, (cost / HARDWARE_BUDGET) * 100);
@@ -39,6 +39,12 @@ export default function HardwarePanel({ hardware, onChange }) {
   return (
     <div className="hardware-panel card">
       <div className="card-title">Hardware</div>
+
+      {controlled && (
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginBottom: 8, lineHeight: 1.4 }}>
+          Controlled by <code>#HARDWARE</code> in program
+        </p>
+      )}
 
       {FIELDS.map(f => (
         <div key={f.key} className="hw-row">
