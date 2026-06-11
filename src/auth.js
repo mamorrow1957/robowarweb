@@ -45,7 +45,7 @@ export async function register(username, password, email) {
   });
   // In IS_TEST mode the server returns a token immediately (auto-verified).
   // In production it returns { pending: true } — no session to save yet.
-  if (data.token) saveSession(data.token, data.username, data.is_admin, !!data.email);
+  if (data.token) saveSession(data.token, data.username, data.is_admin, data.has_email);
   return data;
 }
 
