@@ -369,9 +369,8 @@ async function loginAsAdmin(page) {
     if (cpStatus !== 200) throw new Error(`Admin change-password failed: ${cpStatus}`);
   }
 
-  // Log in via the UI — more reliable than localStorage injection + reload
-  await page.evaluate(() => localStorage.clear());
-  await page.goto('/');
+  // Log in via the UI — caller is responsible for being in logged-out state
+  // (lkui tests log out explicitly; brute-force test starts after beforeEach)
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-modal input[type="text"]').fill('admin');
   await page.locator('.auth-modal input[type="password"]').fill(ADMIN_TEST_PASSWORD);
