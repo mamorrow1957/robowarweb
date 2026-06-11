@@ -189,7 +189,7 @@ export default function RobotEditor({ robotId, navigate }) {
           style={{ maxWidth: 300 }}
         />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input ref={importRef} type="file" style={{ display: 'none' }} onChange={handleImportFile} />
+          <input ref={importRef} type="file" accept=".rw" style={{ display: 'none' }} onChange={handleImportFile} />
           <button className="btn" onClick={handleImportClick}>Import .rw</button>
           <button className="btn" onClick={handleExport}>Export .rw</button>
           {isLoggedIn() && robotId && (
