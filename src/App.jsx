@@ -15,6 +15,7 @@ import SharedRobotView from './components/SharedRobotView.jsx';
 import VerifyEmailModal from './components/VerifyEmailModal.jsx';
 import PublicRobots from './components/PublicRobots.jsx';
 import { isLoggedIn, isAdmin, saveSession } from './auth.js';
+import { getRobotByToken } from './apiStorage.js';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -23,12 +24,14 @@ export default function App() {
   const [loggedIn, setLoggedIn]     = useState(isLoggedIn());
   const [resetToken, setResetToken] = useState(null);
   const [verifyToken, setVerifyToken] = useState(null);
+  const [shareToken, setShareToken]   = useState(null);
 
   useEffect(() => {
     const hash = window.location.hash;
     const resetMatch  = hash.match(/[#&]reset=([^&]+)/);
     const verifyMatch = hash.match(/[#&]verify=([^&]+)/);
     const robotMatch  = hash.match(/[#&]robot=([^&]+)/);
+    const shareMatch  = hash.match(/[#&]share=([^&]+)/);
     if (resetMatch) {
       setResetToken(resetMatch[1]);
       setShowSplash(false);
@@ -40,6 +43,10 @@ export default function App() {
     } else if (robotMatch) {
       setShowSplash(false);
       navigate('shared-robot', { robotId: robotMatch[1] });
+      window.history.replaceState({}, '', '/');
+    } else if (shareMatch) {
+      setShowSplash(false);
+      setShareToken(shareMatch[1]);
       window.history.replaceState({}, '', '/');
     }
   }, []);
@@ -62,6 +69,18 @@ export default function App() {
           onClose={() => { setResetToken(null); navigate('login'); }}
         />
       );
+    }
+    if (shareToken) {
+      if (!loggedIn) {
+        return (
+          <AuthModal
+            onSuccess={() => setLoggedIn(isLoggedIn())}
+            onForgotPassword={() => navigate('forgot-password')}
+            onNeedSetPassword={() => { setLoggedIn(true); navigate('set-password'); }}
+          />
+        );
+      }
+      return <SharedRobotView shareToken={shareToken} navigate={navigate} onClose={() => setShareToken(null)} />;
     }
     if (verifyToken) {
       return (
