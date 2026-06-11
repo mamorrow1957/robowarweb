@@ -343,24 +343,59 @@ test('unlock endpoint resets lock so user can log in again', async ({ page }) =>
 
 // ── Admin panel lockout display ───────────────────────────────
 
+const ADMIN_TEST_PASSWORD = 'AdminTest123!';
+
 async function loginAsAdmin(page) {
-  // In CI the admin has password_set=0; use the first-login API shortcut
-  // then inject the token directly into localStorage so the app treats
-  // the browser session as logged-in admin without going through the UI.
-  const { token, username, is_admin } = await page.evaluate(async () => {
+  // In CI the admin starts with password_set=0 (first-login bypass).
+  // We must set a real password so the app doesn't show the set-password
+  // screen on reload. On subsequent calls the password is already set.
+  const firstLogin = await page.evaluate(async () => {
     const r = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin', password: '' }),
     });
-    if (!r.ok) throw new Error(`Admin login failed: ${r.status}`);
-    return r.json();
+    return { ok: r.ok, data: r.ok ? await r.json() : null };
   });
+
+  let loginData;
+  if (firstLogin.ok) {
+    // Set a real password so the app won't force the set-password screen
+    await page.evaluate(async ({ token, pwd }) => {
+      await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newPassword: pwd }),
+      });
+    }, { token: firstLogin.data.token, pwd: ADMIN_TEST_PASSWORD });
+    // Re-login with the real password to get a normal session token
+    loginData = await page.evaluate(async ({ pwd }) => {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: pwd }),
+      });
+      if (!r.ok) throw new Error(`Admin re-login failed: ${r.status}`);
+      return r.json();
+    }, { pwd: ADMIN_TEST_PASSWORD });
+  } else {
+    // Password already set — use the test password
+    loginData = await page.evaluate(async ({ pwd }) => {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: pwd }),
+      });
+      if (!r.ok) throw new Error(`Admin login failed: ${r.status}`);
+      return r.json();
+    }, { pwd: ADMIN_TEST_PASSWORD });
+  }
+
   await page.evaluate(({ token, username, is_admin }) => {
     localStorage.setItem('robowar_token', token);
     localStorage.setItem('robowar_user', username);
     localStorage.setItem('robowar_is_admin', is_admin ? '1' : '0');
-  }, { token, username, is_admin });
+  }, loginData);
   await page.reload();
   await page.locator('.nav', { timeout: 5000 }).waitFor();
 }
@@ -427,7 +462,9 @@ test('clicking Unlock in admin panel restores Active status', async ({ page }) =
 });
 
 test('failed admin login attempts reset counter and admin can still log in', async ({ page }) => {
-  // Make 5 failed attempts against admin account via API
+  // Ensure admin has a real password set (loginAsAdmin handles first-login setup)
+  await loginAsAdmin(page);
+  // Now make 5 failed attempts — should always be 401, never 403
   for (let i = 0; i < 5; i++) {
     const status = await page.evaluate(async () => {
       const r = await fetch('/api/auth/login', {
@@ -439,16 +476,16 @@ test('failed admin login attempts reset counter and admin can still log in', asy
     });
     expect(status).toBe(401); // Never 403 — admin is never locked
   }
-  // Admin can still log in (counter was reset after 5 failures)
-  const token = await page.evaluate(async () => {
+  // Admin can still log in after counter was reset
+  const token = await page.evaluate(async ({ pwd }) => {
     const r = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: '' }),
+      body: JSON.stringify({ username: 'admin', password: pwd }),
     });
     if (!r.ok) throw new Error(`Admin login returned ${r.status}`);
     const data = await r.json();
     return data.token;
-  });
+  }, { pwd: ADMIN_TEST_PASSWORD });
   expect(token).toBeTruthy();
 });
