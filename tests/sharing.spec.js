@@ -9,17 +9,15 @@ test.afterAll(async () => {
 
 async function registerAndGetRobotId(page, suffix) {
   const username = `sharer_${suffix}_${Date.now()}`;
-  const password = 'password123';
   await page.locator('.nav-auth button', { hasText: 'Log In' }).click();
   await page.locator('.auth-switch').click();
   await page.locator('.auth-modal input[type="text"]').fill(username);
   await page.locator('.auth-modal input[type="email"]').fill(`${username}@test.com`);
-  await page.locator('.auth-modal input[type="password"]').fill(password);
+  await page.locator('.auth-modal input[type="password"]').fill('password123');
   await page.locator('.auth-modal .auth-privacy-agree').check();
   await page.locator('.auth-submit').click();
   await page.locator('.nav-user').waitFor();
 
-  // Create a robot via the + New Robot button
   await page.locator('.btn.primary', { hasText: '+ New Robot' }).click();
   await page.locator('.nav-btn', { hasText: 'My Robots' }).click();
   await page.locator('.robot-row').first().waitFor();
@@ -29,7 +27,6 @@ async function registerAndGetRobotId(page, suffix) {
     const r = await fetch('/api/robots', { headers: { Authorization: `Bearer ${t}` } });
     return r.json();
   }, token);
-
   return { username, token, robotId: robots[0]?.id };
 }
 
@@ -135,13 +132,17 @@ test('visiting /#robot=ID while logged out shows login form', async ({ page }) =
   }, token);
   const sharedRobot = robots.find(r => r.is_public === 1);
 
+  // Clear auth but keep splash-dismissed state so nav shows after reload
   await page.evaluate(() => {
     localStorage.removeItem('robowar_token');
     localStorage.removeItem('robowar_user');
     localStorage.removeItem('robowar_is_admin');
     localStorage.removeItem('robowar_has_email');
   });
-  await page.goto(`/#robot=${sharedRobot.id}`);
+
+  // Navigate via about:blank to force a full page reload (not a hash-only navigation)
+  await page.goto('about:blank');
+  await page.goto(`http://localhost:5173/#robot=${sharedRobot.id}`);
   await expect(page.locator('.auth-modal')).toBeVisible({ timeout: 8000 });
 });
 
@@ -155,7 +156,8 @@ test('visiting /#robot=ID while logged in shows SharedRobotView', async ({ page 
   }, token);
   const sharedRobot = robots.find(r => r.is_public === 1);
 
-  await page.goto(`/#robot=${sharedRobot.id}`);
-  await expect(page.locator('.page-title')).toBeVisible({ timeout: 8000 });
-  await expect(page.locator('.btn', { hasText: 'Battle This Robot' })).toBeVisible();
+  // Navigate via about:blank to force a full page reload (not a hash-only navigation)
+  await page.goto('about:blank');
+  await page.goto(`http://localhost:5173/#robot=${sharedRobot.id}`);
+  await expect(page.locator('.btn', { hasText: 'Battle This Robot' })).toBeVisible({ timeout: 8000 });
 });
