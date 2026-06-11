@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getRobotById, saveRobot, newRobotId } from "../../storage.js";
-import { saveRobotToAPI } from "../../apiStorage.js";
+import { saveRobotToAPI, getRobotsFromAPI, setRobotShared } from "../../apiStorage.js";
 import { isLoggedIn } from "../../auth.js";
 import { DEFAULT_HARDWARE, calcHardwareCost, HARDWARE_BUDGET } from '../../engine/hardware.js';
 import { compile } from '../../engine/compiler.js';
@@ -16,7 +16,6 @@ POOL
 `;
 
 function parseRwFile(text) {
-  // Normalise line endings (CRLF → LF)
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let name = 'Imported Robot';
   let hardware = { ...DEFAULT_HARDWARE };
@@ -45,10 +44,8 @@ function parseRwFile(text) {
     }
   }
 
-  // Return null if the file doesn't look like a .rw robot file at all
   if (!foundProgram) return null;
 
-  // Strip trailing blank lines from program
   while (programLines.length && programLines[programLines.length - 1].trim() === '') {
     programLines.pop();
   }
@@ -57,9 +54,11 @@ function parseRwFile(text) {
 }
 
 export default function RobotEditor({ robotId, navigate }) {
-  const [robot, setRobot] = useState(null);
-  const [errors, setErrors] = useState([]);
-  const [saved, setSaved] = useState(false);
+  const [robot, setRobot]       = useState(null);
+  const [errors, setErrors]     = useState([]);
+  const [saved, setSaved]       = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
+  const [shareMsg, setShareMsg] = useState('');
   const importRef = useRef(null);
 
   useEffect(() => {
@@ -68,6 +67,13 @@ export default function RobotEditor({ robotId, navigate }) {
       setRobot(r || makeNew());
     } else {
       setRobot(makeNew());
+    }
+    // Fetch is_public from API if logged in
+    if (robotId && isLoggedIn()) {
+      getRobotsFromAPI().then(list => {
+        const found = list.find(r => r.id === robotId);
+        if (found) setIsPublic(!!found.is_public);
+      }).catch(() => {});
     }
   }, [robotId]);
 
@@ -106,6 +112,19 @@ export default function RobotEditor({ robotId, navigate }) {
     navigate('battle-setup', { preselected: [robot.id] });
   }
 
+  async function handleShare() {
+    if (!robot || !isLoggedIn()) return;
+    const sharing = !isPublic;
+    await setRobotShared(robot.id, sharing);
+    setIsPublic(sharing);
+    if (sharing) {
+      const url = `${window.location.origin}/#robot=${robot.id}`;
+      navigator.clipboard.writeText(url).catch(() => {});
+      setShareMsg('Link copied!');
+      setTimeout(() => setShareMsg(''), 2000);
+    }
+  }
+
   function handleImportClick() {
     importRef.current?.click();
   }
@@ -124,7 +143,7 @@ export default function RobotEditor({ robotId, navigate }) {
     };
     reader.onerror = () => alert('Failed to read file.');
     reader.readAsText(file);
-    e.target.value = ''; // allow re-import of same file
+    e.target.value = '';
   }
 
   function handleExport() {
@@ -158,27 +177,25 @@ export default function RobotEditor({ robotId, navigate }) {
           placeholder="Robot name"
           style={{ maxWidth: 300 }}
         />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            ref={importRef}
-            type="file"
-            style={{ display: 'none' }}
-            onChange={handleImportFile}
-          />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input ref={importRef} type="file" style={{ display: 'none' }} onChange={handleImportFile} />
           <button className="btn" onClick={handleImportClick}>Import .rw</button>
           <button className="btn" onClick={handleExport}>Export .rw</button>
-          <button
-            className="btn"
-            onClick={handleBattle}
-            disabled={overBudget || errors.length > 0}
-          >
-            Test Battle
-          </button>
-          <button
-            className="btn primary"
-            onClick={handleSave}
-            disabled={overBudget}
-          >
+          {isLoggedIn() && robotId && (
+            <button className="btn" onClick={handleShare}>
+              {shareMsg || (isPublic ? 'Unshare' : 'Share')}
+            </button>
+          )}
+          {isLoggedIn() && robotId && isPublic && !shareMsg && (
+            <button className="btn" onClick={() => {
+              const url = `${window.location.origin}/#robot=${robot.id}`;
+              navigator.clipboard.writeText(url).catch(() => {});
+              setShareMsg('Copied!');
+              setTimeout(() => setShareMsg(''), 2000);
+            }}>Copy Link</button>
+          )}
+          <button className="btn" onClick={handleBattle} disabled={overBudget || errors.length > 0}>Test Battle</button>
+          <button className="btn primary" onClick={handleSave} disabled={overBudget}>
             {saved ? 'Saved!' : 'Save'}
           </button>
           <button className="btn" onClick={() => navigate('robots')}>← Back</button>
@@ -186,15 +203,8 @@ export default function RobotEditor({ robotId, navigate }) {
       </div>
 
       <div className="editor-layout">
-        <HardwarePanel
-          hardware={robot.hardware}
-          onChange={hw => update({ hardware: hw })}
-        />
-        <ProgramEditor
-          value={robot.program}
-          onChange={prog => update({ program: prog })}
-          errors={errors}
-        />
+        <HardwarePanel hardware={robot.hardware} onChange={hw => update({ hardware: hw })} />
+        <ProgramEditor value={robot.program} onChange={prog => update({ program: prog })} errors={errors} />
       </div>
     </div>
   );
