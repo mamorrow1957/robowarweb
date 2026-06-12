@@ -178,10 +178,10 @@ export class CombatEngine {
       r.x += r.vx;
       r.y += r.vy;
 
-      if (r.x - ROBOT_RADIUS < 0)            { r.x = ROBOT_RADIUS;              r.vx =  Math.abs(r.vx);  r.sensors.COLLISION = 1; }
-      if (r.x + ROBOT_RADIUS > this.width)   { r.x = this.width - ROBOT_RADIUS; r.vx = -Math.abs(r.vx);  r.sensors.COLLISION = 1; }
-      if (r.y - ROBOT_RADIUS < 0)            { r.y = ROBOT_RADIUS;              r.vy =  Math.abs(r.vy);  r.sensors.COLLISION = 1; }
-      if (r.y + ROBOT_RADIUS > this.height)  { r.y = this.height - ROBOT_RADIUS;r.vy = -Math.abs(r.vy);  r.sensors.COLLISION = 1; }
+      if (r.x - ROBOT_RADIUS < 0)            { r.x = ROBOT_RADIUS;              r.vx = Math.max(0, r.vx);  r.sensors.COLLISION = 1; }
+      if (r.x + ROBOT_RADIUS > this.width)   { r.x = this.width - ROBOT_RADIUS; r.vx = Math.min(0, r.vx);  r.sensors.COLLISION = 1; }
+      if (r.y - ROBOT_RADIUS < 0)            { r.y = ROBOT_RADIUS;              r.vy = Math.max(0, r.vy);  r.sensors.COLLISION = 1; }
+      if (r.y + ROBOT_RADIUS > this.height)  { r.y = this.height - ROBOT_RADIUS;r.vy = Math.min(0, r.vy);  r.sensors.COLLISION = 1; }
       if (r.sensors.COLLISION) { this.applyDamage(r, 2); r.vm.beep = 1; }
     }
 
