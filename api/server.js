@@ -32,7 +32,7 @@ const mailer = nodemailer.createTransport({
 });
 
 // ── DB setup ─────────────────────────────────────────────────
-const db = new Database(path.join(__dirname, 'robowar.db'));
+const db = new Database(process.env.DATABASE_PATH || path.join(__dirname, 'robowar.db'));
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
