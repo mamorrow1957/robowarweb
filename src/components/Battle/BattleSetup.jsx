@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getRobots } from '../../storage.js';
+import { getRobotsFromAPI } from '../../api.js';
+import { isLoggedIn } from '../../auth.js';
 import { ROBOT_COLORS, calcHardwareCost } from '../../engine/hardware.js';
 
 export default function BattleSetup({ preselected = [], extraRobots = [], navigate }) {
-  const ownRobots = getRobots();
+  const [ownRobots, setOwnRobots] = useState([]);
+
+  useEffect(() => {
+    async function loadRobots() {
+      if (isLoggedIn()) {
+        try { setOwnRobots(await getRobotsFromAPI()); }
+        catch { setOwnRobots(getRobots()); }
+      } else {
+        setOwnRobots(getRobots());
+      }
+    }
+    loadRobots();
+  }, []);
+
   const robots = [...ownRobots, ...extraRobots.filter(er => !ownRobots.find(r => r.id === er.id))];
   const [selected, setSelected] = useState(new Set(preselected));
   const [arenaSize, setArenaSize] = useState('300');
