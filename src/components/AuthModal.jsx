@@ -30,7 +30,7 @@ export default function AuthModal({ onSuccess, onForgotPassword, onNeedSetPasswo
           method: 'POST',
           body: JSON.stringify({ username, password }),
         });
-        saveSession(data.token, data.username, data.is_admin);
+        saveSession(data.token, data.username, data.is_admin, data.has_email);
         if (data.password_set === 0) { onNeedSetPassword(); return; }
         onSuccess();
       } else {
