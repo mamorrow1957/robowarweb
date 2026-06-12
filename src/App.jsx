@@ -19,7 +19,7 @@ import { getRobotByToken } from './apiStorage.js';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [page, setPage]             = useState('robots');
+  const [page, setPage]             = useState(isAdmin() ? 'admin' : 'robots');
   const [params, setParams]         = useState({});
   const [loggedIn, setLoggedIn]     = useState(isLoggedIn());
   const [resetToken, setResetToken] = useState(null);
