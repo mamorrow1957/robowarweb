@@ -525,3 +525,32 @@ test('admin panel shows verified checkmark for verified user', async ({ page }) 
   const row = page.locator('tr', { hasText: `testuser_ver1` });
   await expect(row.locator('td').nth(2)).toContainText('✓');
 });
+
+// ── Admin routing ────────────────────────────────────────────
+
+test('admin is routed to admin panel after login', async ({ page }) => {
+  await loginAsAdmin(page);
+  await expect(page.locator('.page-title')).toHaveText('Admin Panel');
+});
+
+test('admin stays on admin panel after page reload', async ({ page }) => {
+  await loginAsAdmin(page);
+  await expect(page.locator('.page-title')).toHaveText('Admin Panel');
+  await loadApp(page);
+  await page.locator('.nav-user').waitFor();
+  await expect(page.locator('.page-title')).toHaveText('Admin Panel');
+});
+
+// ── Logout clears robot list ─────────────────────────────────
+
+test('robot list is cleared from localStorage after logout', async ({ page }) => {
+  await registerUser(page, 'robotclear1');
+  // Seed a fake robot into localStorage to simulate a cached list
+  await page.evaluate(() => {
+    localStorage.setItem('robowar_robots', JSON.stringify([{ id: 'fake1', name: 'CachedBot' }]));
+  });
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
+  await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
+  const robots = await page.evaluate(() => localStorage.getItem('robowar_robots'));
+  expect(robots).toBeNull();
+});
