@@ -7,6 +7,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('shows all sample robots on first load', async ({ page }) => {
+  await page.locator('.robot-row').first().waitFor();
   const names = await getRobotNames(page);
   expect(names).toEqual(SAMPLE_NAMES);
 });
@@ -69,6 +70,7 @@ test('can delete all robots and shows empty state', async ({ page }) => {
 
 test('saved robot appears in list', async ({ page }) => {
   await seedRobots(page, [makeRobot({ name: 'MyBot' })]);
+  await page.locator('.robot-row').first().waitFor();
   const names = await getRobotNames(page);
   expect(names).toContain('MyBot');
 });
