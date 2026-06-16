@@ -558,7 +558,7 @@ The editor displays a live **HP remaining** counter. Any configuration exceeding
 - **Dimensions:** configurable — Small 200×200, Standard 300×300, Large 500×500 (logical units, rendered scaled to viewport)
 - **Coordinate system:** origin top-left; +X right, +Y down
 - **Robot radius:** 8 logical units (collision boundary and render size)
-- **Walls:** hard boundaries; robots bounce elastically (velocity component negated); `COLLISION` set to 1
+- **Walls:** hard boundaries; robots stop at walls (velocity component into the wall zeroed, position clamped); `COLLISION` set to 1
 - **Starting positions:** random spawn within a 40-unit inset margin; robots are placed at least 60 units apart; seed-deterministic
 - **Victory condition:** last robot (or team) standing wins; at tick limit the robot with the highest remaining armor wins; ties broken by remaining energy; mutual destruction → Draw
 
@@ -574,7 +574,7 @@ Each tick the combat engine runs in this order:
 4. Apply thrust: `vx += thrustX × accel × 0.5`; clamp to ±maxSpeed  
    Apply braking: `vx *= 0.80` when `BRAKE=1`
 5. Move each robot by its velocity vector
-6. Resolve wall collisions (elastic bounce; set `COLLISION=1`)
+6. Resolve wall collisions (clamp position, zero velocity into wall; set `COLLISION=1`)
 7. Resolve robot–robot collisions (overlap separation + elastic velocity exchange; set `COLLISION=1` on both)
 8. Move active projectiles; apply missile homing
 9. Resolve projectile–robot hits; apply damage
@@ -681,7 +681,7 @@ Split into two panels:
 
 ### 6.4 Battle Setup
 
-1. Select 2–8 robots via checkboxes
+1. Select 2–8 robots via checkboxes (logged-in users see their own saved robots merged with the built-in sample robots; guests see sample robots only)
 2. Choose arena size (Small 200 / Standard 300 / Large 500)
 3. Set tick limit (500 / 1000 / 2000 / 5000)
 4. Click **Start Battle** — battle is simulated in a Web Worker
@@ -1010,11 +1010,11 @@ tests/
     └── combat.spec.js      — Combat engine unit tests (physics, weapons, damage)
 ```
 
-### 9.3 Test Counts (~360 total)
+### 9.3 Test Counts (~365 total)
 
 | File | Tests | Coverage area |
 |---|---|---|
-| `admin.spec.js` | ~42 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API, admin brute-force alerting, account deletion, admin email verification column |
+| `admin.spec.js` | ~45 | Forgot password, account modal tabs, email management, password change, nudge banner, duplicate email, token revocation, admin nav, account lockout, unlock via API, admin brute-force alerting, account deletion, admin email verification column, admin routing after login/reload, logout clears robot cache |
 | `auth.spec.js` | 23 | Login/register modal (email + privacy fields), nav auth state, nudge banner, error cases |
 | `navigation.spec.js` | 24 | Splash page, credits, dismiss flow, nav routing, Docs link |
 | `battle.spec.js` | 29 | Battle setup UI, viewer controls, speed buttons, robot stats, mute button |
