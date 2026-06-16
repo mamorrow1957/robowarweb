@@ -11,6 +11,7 @@ env:
 
 jobs:
   test:
+    name: Smoke tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,30 +34,67 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run tests
-        run: npm test
+      - name: Run smoke tests
+        run: npx playwright test --project=smoke
         env:
           JWT_SECRET: ci-test-secret
-
-      - name: Notify Slack on success
-        if: success()
-        run: |
-          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
-            --data '{"text":":white_check_mark: *RoboWar CI passed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}"}' \
-            ${{ secrets.SLACK_WEBHOOK_URL }} || true
 
       - name: Notify Slack on failure
         if: failure()
         run: |
           curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
-            --data '{"text":":x: *RoboWar CI failed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}\nSee: https://github.com/mamorrow1957/robowarweb/actions"}' \
+            --data '{"text":":x: *RoboWar smoke tests failed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}\nSee: https://github.com/mamorrow1957/robowarweb/actions"}' \
             ${{ secrets.SLACK_WEBHOOK_URL }} || true
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-smoke
+          path: playwright-report/
+          retention-days: 14
+
+  test-extended:
+    name: Extended tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install build tools for native modules
+        run: sudo apt-get install -y build-essential python3
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm ci
+        working-directory: api
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run extended tests
+        run: npx playwright test --project=extended
+        env:
+          JWT_SECRET: ci-test-secret
+
+      - name: Notify Slack on failure
+        if: failure()
+        run: |
+          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+            --data '{"text":":warning: *RoboWar extended tests failed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}\nSee: https://github.com/mamorrow1957/robowarweb/actions"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-extended
           path: playwright-report/
           retention-days: 14
 
