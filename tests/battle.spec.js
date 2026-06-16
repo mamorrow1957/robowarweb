@@ -15,12 +15,14 @@ test('battle setup page title is "Battle Setup"', async ({ page }) => {
 
 test('battle setup lists all robots', async ({ page }) => {
   await navTo(page, 'Battle');
+  await page.locator('.robot-check-row').first().waitFor();
   const rows = page.locator('.robot-check-row');
   await expect(rows).toHaveCount(SAMPLE_NAMES.length);
 });
 
 test('battle setup shows robot names', async ({ page }) => {
   await navTo(page, 'Battle');
+  await page.locator('.robot-check-row').first().waitFor();
   const names = await page.locator('.robot-check-row .robot-name').allTextContents();
   for (const n of SAMPLE_NAMES) expect(names).toContain(n);
 });
