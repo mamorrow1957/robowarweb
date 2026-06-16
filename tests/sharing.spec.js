@@ -19,6 +19,7 @@ async function registerAndGetRobotId(page, suffix) {
   await page.locator('.nav-user').waitFor();
 
   await page.locator('.btn.primary', { hasText: '+ New Robot' }).click();
+  await page.locator('.btn.primary', { hasText: 'Save' }).click();
   await page.locator('.nav-btn', { hasText: 'My Robots' }).click();
   await page.locator('.robot-row').first().waitFor();
 
