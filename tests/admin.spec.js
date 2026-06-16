@@ -570,5 +570,8 @@ test('robot list is cleared from localStorage after logout', async ({ page }) =>
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).waitFor();
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
   await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
-  expect(await page.evaluate(() => localStorage.getItem('robowar_robots'))).toBeNull();
+  // robowar_robots may be re-seeded with sample robots; verify the user's cached robot is gone
+  const stored = await page.evaluate(() => localStorage.getItem('robowar_robots'));
+  const robotNames = stored ? JSON.parse(stored).map(r => r.name) : [];
+  expect(robotNames).not.toContain('CachedBot');
 });
