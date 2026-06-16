@@ -99,7 +99,7 @@ Server (Ubuntu / Nginx / Cloudflare)
 | Build tool | Vite |
 | Reverse proxy | Nginx + Cloudflare |
 | CI/CD | GitHub Actions + self-hosted runner |
-| Tests | Playwright (~350 tests, all passing) |
+| Tests | Playwright (~365 tests, all passing) |
 
 ## Security
 
