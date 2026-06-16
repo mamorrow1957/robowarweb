@@ -9,11 +9,16 @@ export default function BattleSetup({ preselected = [], extraRobots = [], naviga
 
   useEffect(() => {
     async function loadRobots() {
+      const local = getRobots();
       if (isLoggedIn()) {
-        try { setOwnRobots(await getRobotsFromAPI()); }
-        catch { setOwnRobots(getRobots()); }
+        try {
+          const api = await getRobotsFromAPI();
+          // Merge API robots with sample robots so logged-in users always have opponents
+          const merged = [...api, ...local.filter(lr => !api.find(r => r.id === lr.id))];
+          setOwnRobots(merged);
+        } catch { setOwnRobots(local); }
       } else {
-        setOwnRobots(getRobots());
+        setOwnRobots(local);
       }
     }
     loadRobots();
