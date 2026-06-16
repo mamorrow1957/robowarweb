@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getRobots } from '../../storage.js';
-import { getRobotsFromAPI } from '../../api.js';
+import { getRobotsFromAPI } from '../../apiStorage.js';
 import { isLoggedIn } from '../../auth.js';
 import { ROBOT_COLORS, calcHardwareCost } from '../../engine/hardware.js';
 
