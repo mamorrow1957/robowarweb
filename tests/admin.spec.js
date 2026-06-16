@@ -530,15 +530,15 @@ test('admin panel shows verified checkmark for verified user', async ({ page }) 
 
 test('admin is routed to admin panel after login', async ({ page }) => {
   await loginAsAdmin(page);
-  await expect(page.locator('.page-title')).toHaveText('Admin Panel');
+  await expect(page.locator('h2')).toHaveText('Admin Panel');
 });
 
 test('admin stays on admin panel after page reload', async ({ page }) => {
   await loginAsAdmin(page);
-  await expect(page.locator('.page-title')).toHaveText('Admin Panel');
+  await expect(page.locator('h2')).toHaveText('Admin Panel');
   await loadApp(page);
   await page.locator('.nav-user').waitFor();
-  await expect(page.locator('.page-title')).toHaveText('Admin Panel');
+  await expect(page.locator('h2')).toHaveText('Admin Panel');
 });
 
 // ── Logout clears robot list ─────────────────────────────────
