@@ -544,11 +544,13 @@ test('admin stays on admin panel after page reload', async ({ page }) => {
 // ── Logout clears robot list ─────────────────────────────────
 
 test('robot list is cleared from localStorage after logout', async ({ page }) => {
-  await registerUser(page, 'robotclear1');
-  // Seed a fake robot into localStorage to simulate a cached list
+  // Inject a fake session so Log Out button appears — avoids slow registration roundtrip
   await page.evaluate(() => {
+    localStorage.setItem('robowar_token', 'fake-token');
+    localStorage.setItem('robowar_user', 'fakeuser');
     localStorage.setItem('robowar_robots', JSON.stringify([{ id: 'fake1', name: 'CachedBot' }]));
   });
+  await loadApp(page);
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
   await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
   const robots = await page.evaluate(() => localStorage.getItem('robowar_robots'));
