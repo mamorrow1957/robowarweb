@@ -13,8 +13,28 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      // Core user flows — must pass before deploy
+      name: 'smoke',
       use: { ...devices['Desktop Chrome'] },
+      testMatch: [
+        'tests/auth.spec.js',
+        'tests/robots.spec.js',
+        'tests/battle.spec.js',
+        'tests/admin.spec.js',
+        'tests/sharing.spec.js',
+      ],
+    },
+    {
+      // Engine unit tests + secondary UI — run in parallel, non-blocking
+      name: 'extended',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: [
+        'tests/engine/**/*.spec.js',
+        'tests/navigation.spec.js',
+        'tests/editor.spec.js',
+        'tests/leaderboard.spec.js',
+        'tests/tournament.spec.js',
+      ],
     },
   ],
   webServer: [
