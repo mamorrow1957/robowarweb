@@ -544,15 +544,31 @@ test('admin stays on admin panel after page reload', async ({ page }) => {
 // ── Logout clears robot list ─────────────────────────────────
 
 test('robot list is cleared from localStorage after logout', async ({ page }) => {
-  // Inject a fake session so Log Out button appears — avoids slow registration roundtrip
-  await page.evaluate(() => {
-    localStorage.setItem('robowar_token', 'fake-token');
-    localStorage.setItem('robowar_user', 'fakeuser');
-    localStorage.setItem('robowar_robots', JSON.stringify([{ id: 'fake1', name: 'CachedBot' }]));
+  // Register via API to get a real token (avoids unreliable UI registration at end of test suite)
+  const { token, username } = await page.evaluate(async () => {
+    const r = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: `testuser_rlc_${Date.now()}`,
+        password: 'password123',
+        email: `rlc_${Date.now()}@test.com`,
+        privacyAgreed: true,
+      }),
+    });
+    return r.json();
   });
-  await loadApp(page);
+  // Save session + fake robot cache
+  await page.evaluate(({ token, username }) => {
+    localStorage.setItem('robowar_token', token);
+    localStorage.setItem('robowar_user', username);
+    localStorage.setItem('robowar_robots', JSON.stringify([{ id: 'fake1', name: 'CachedBot' }]));
+  }, { token, username });
+  // Reload so the app picks up the new session (page.reload preserves localStorage)
+  await page.reload();
+  await page.locator('.splash-btn-primary').click();
+  await page.locator('.nav-auth button', { hasText: 'Log Out' }).waitFor();
   await page.locator('.nav-auth button', { hasText: 'Log Out' }).click();
   await page.locator('.nav-auth button', { hasText: 'Log In' }).waitFor();
-  const robots = await page.evaluate(() => localStorage.getItem('robowar_robots'));
-  expect(robots).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('robowar_robots'))).toBeNull();
 });
