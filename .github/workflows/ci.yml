@@ -39,6 +39,13 @@ jobs:
         env:
           JWT_SECRET: ci-test-secret
 
+      - name: Notify Slack on success
+        if: success()
+        run: |
+          curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+            --data '{"text":":white_check_mark: *RoboWar smoke tests passed* on `${{ github.ref_name }}`\n${{ github.event.head_commit.message }}"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }} || true
+
       - name: Notify Slack on failure
         if: failure()
         run: |
