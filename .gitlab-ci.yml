@@ -1,0 +1,89 @@
+stages:
+  - test
+  - deploy
+
+.node-base:
+  image: node:20
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+
+smoke-tests:
+  extends: .node-base
+  stage: test
+  script:
+    - apt-get update -y && apt-get install -y build-essential python3
+    - npm ci --cache .npm --prefer-offline
+    - cd api && npm ci --cache ../.npm --prefer-offline && cd ..
+    - npx playwright install --with-deps chromium
+    - JWT_SECRET=ci-test-secret npx playwright test --project=smoke
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "success" ]; then
+        curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\":white_check_mark: *RoboWar smoke tests passed* on \`$CI_COMMIT_REF_NAME\`\n$CI_COMMIT_MESSAGE\"}" \
+          "$SLACK_WEBHOOK_URL" || true
+      else
+        curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\":x: *RoboWar smoke tests failed* on \`$CI_COMMIT_REF_NAME\`\n$CI_COMMIT_MESSAGE\nSee: $CI_PIPELINE_URL\"}" \
+          "$SLACK_WEBHOOK_URL" || true
+      fi
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+    expire_in: 14 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+
+extended-tests:
+  extends: .node-base
+  stage: test
+  script:
+    - apt-get update -y && apt-get install -y build-essential python3
+    - npm ci --cache .npm --prefer-offline
+    - cd api && npm ci --cache ../.npm --prefer-offline && cd ..
+    - npx playwright install --with-deps chromium
+    - JWT_SECRET=ci-test-secret npx playwright test --project=extended
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" != "success" ]; then
+        curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\":warning: *RoboWar extended tests failed* on \`$CI_COMMIT_REF_NAME\`\n$CI_COMMIT_MESSAGE\nSee: $CI_PIPELINE_URL\"}" \
+          "$SLACK_WEBHOOK_URL" || true
+      fi
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+    expire_in: 14 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"'
+
+deploy:
+  stage: deploy
+  tags:
+    - self-hosted
+  script:
+    - cd ~/robowarweb && git pull origin main
+    - ~/robowarweb/scripts/deploy.sh
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "success" ]; then
+        curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+          --data '{"text":":rocket: *RoboWar deployed successfully* to https://robowar.morroweb.com"}' \
+          "$SLACK_WEBHOOK_URL" || true
+      else
+        curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+          --data '{"text":":fire: *RoboWar deploy failed* — check the server!"}' \
+          "$SLACK_WEBHOOK_URL" || true
+      fi
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  needs:
+    - smoke-tests

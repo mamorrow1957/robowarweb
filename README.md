@@ -98,7 +98,7 @@ Server (Ubuntu / Nginx / Cloudflare)
 | API server | Node.js, Express, better-sqlite3, bcryptjs, jsonwebtoken, nodemailer |
 | Build tool | Vite |
 | Reverse proxy | Nginx + Cloudflare |
-| CI/CD | GitHub Actions + self-hosted runner |
+| CI/CD | GitLab CI + self-hosted runner |
 | Tests | Playwright (~365 tests, all passing) |
 
 ## Security
@@ -134,9 +134,9 @@ npm test           # runs the full Playwright suite
 
 ## CI/CD
 
-Push to `dev` → tests run on GitHub Actions.  
-Merge to `main` → tests run, then self-hosted runner deploys to [robowar.morroweb.com](https://robowar.morroweb.com).  
-Slack notifications sent to `#deployments` on pass/fail/deploy.
+Push to `dev` → smoke tests + extended tests run on GitLab CI.  
+Merge to `main` → smoke tests run, then self-hosted runner deploys to [robowar.morroweb.com](https://robowar.morroweb.com).  
+Slack notifications sent to `#deployments` on smoke pass/fail and deploy success/fail.
 
 ## Documentation
 
