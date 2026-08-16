@@ -2,6 +2,16 @@
   "name": "robowarweb",
   "version": "0.1.0",
   "type": "module",
+  "author": "Michael Morrow",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.morroweb.com/michael/robowarweb.git"
+  },
+  "bugs": {
+    "url": "https://gitlab.morroweb.com/michael/robowarweb/-/issues"
+  },
+  "homepage": "https://robowar.morroweb.com",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
