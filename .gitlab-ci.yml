@@ -51,7 +51,11 @@ extended-tests:
     - JWT_SECRET=ci-test-secret npx playwright test --project=extended
   after_script:
     - |
-      if [ "$CI_JOB_STATUS" != "success" ]; then
+      if [ "$CI_JOB_STATUS" = "success" ]; then
+        curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\":white_check_mark: *RoboWar extended tests passed* on \`$CI_COMMIT_REF_NAME\`\n$CI_COMMIT_MESSAGE\"}" \
+          "$SLACK_WEBHOOK_URL" || true
+      else
         curl -s --max-time 10 -X POST -H 'Content-type: application/json' \
           --data "{\"text\":\":warning: *RoboWar extended tests failed* on \`$CI_COMMIT_REF_NAME\`\n$CI_COMMIT_MESSAGE\nSee: $CI_PIPELINE_URL\"}" \
           "$SLACK_WEBHOOK_URL" || true
